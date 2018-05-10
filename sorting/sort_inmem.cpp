@@ -135,7 +135,7 @@ struct Key{
 	}
 };
 
-// 
+// // 取data中每条记录的key部分，并排序到keys中 
 void sort(const std::vector<std::string>& data, std::vector<Key>* keys) 
 {
 	keys->reserve(data.size());

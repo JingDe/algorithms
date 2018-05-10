@@ -1,3 +1,7 @@
+
+// 优化分块排序的流水线
+// 多个线程重叠进行读写IO与内存中排序
+
 #include<cstdio>
 #include<vector>
 #include<string>
@@ -8,6 +12,9 @@
 
 #include<unistd.h>
 #include<sys/resource.h>
+
+#include"BlockingQueue.h"
+#include"ThreadPool.h"
 
 const int kRecordSize=100;
 const int kKeySize=10;
@@ -145,45 +152,130 @@ struct Key{
 	}
 };
 
-// 取data中每条记录的key部分，并排序到keys中 
-void sort(const std::vector<std::string>& data, std::vector<Key>* keys) 
+void sortWithKeys(const std::vector<std::string>& data, std::vector<Key>* keys)
 {
-	keys->reserve(data.size());
-	for(size_t i=0; i<data.size(); ++i)
-		keys->push_back(Key(data[i], i));
-	
-	std::sort(keys->begin(), keys->end());
+  keys->clear();
+  keys->reserve(data.size());
+
+  for (size_t i = 0; i < data.size(); ++i)
+  {
+    keys->push_back(Key(data[i], i));
+  }
+
+  std::sort(keys->begin(), keys->end());
 }
 
-// 对文件filename分块读取，分块排序输出到batch个有序小文件 
-int sortSplit(const char* filename)
-{
-	std::vector<std::string> data;
-	
-	InputFile in(filename);
-	int batch=0;
-	while(true)
+typedef std::vector<std::string> Data;
+
+class Task;
+typedef std::shared_ptr<Task> TaskPtr;
+
+
+// Task类描述分块排序的操作
+// 先调用read 
+// 调用sort排序，排好序后数据在data_中 
+// 调用write写 
+class Task : public std::enable_shared_from_this<Task> {
+public:
+	Task(BlockingQueue<TaskPtr>* queue)
+		:queue_(queue),
+		id_(s_created++),
+		sorted_(false)
 	{
-		readInput(in, &data);
 		
-		if(data.empty())
-			break;
-		
-		std::vector<Key> keys;
-		sort(data, &keys);
+	}
+	
+	~Task()
+	{
+	}
+	
+	bool read(InputFile& in)
+	{
+		sorted_=false;
+		readInput(in, &data_); // 读文件in的一块到data_中 
+		return !data_.empty();
+	}
+	
+	void sort()
+	{
+		assert(!sorted_);
+		sortWithKeys(data_, &keys_);
+		sorted_=true;
+		queue_->put(shared_from_this());
+	}
+	
+	void write(int batch)
+	{
+		assert(sorted_);
 		
 		{
 			char output[256];
-			snprintf(output, sizeof output, TMP_DIR"tmp%d", batch++);
-			
-			OutputFile out(output);
-			for(std::vector<Key>::iterator it=keys.begin(); it!=keys.end(); ++it)
-				out.writeLine(data[it->index]);
+			snprintf(output, sizeof output, "tmp%d", batch);
+			for(std::vector<Key>::iterator it=keys_.begin(); it!=keys_.end(); ++it)
+				out.writeLine(data_[it->index]);
 		}
 	}
 	
+	const Data& data() const
+	{
+		return data_;
+	}
+	
+private:
+	Data data_;
+	std::vector<Key> keys_;
+	BlockingQueue<TaskPtr>* queue_;
+	int id_;
+	bool sorted_;
+	
+	static int s_created;
+};
+
+// 主线程读写，线程池在内存中排序 
+int sortSplit(const char* filename) 
+{
+	InputFile in(fileanme);
+	BlockingQueue<TaskPtr> queue; // 存放排好序的task
+	ThreadPool threadPool;
+	threadPool.start(2);
+	int active=0;
+	
+	{
+		TaskPtr task(new Task(&queue));
+		if(task->read(in))
+		{
+			threadPool.run(std::bind(&Task::sort, task)); // sort后，将task压入queue 
+			active++;
+		}
+		else
+			return 0;
+			
+		TaskPtr task2(new Task(&queue));
+		if(task2->read(in))
+		{
+			threadPool.run(std::bind(&Task::sort, task2); // sort后，将task压入queue 
+			active++;
+		}
+	}
+	
+	int batch=0;
+	while(active>0)
+	{
+		TaskPtr task=queue.take();
+		active--;
+		
+		task->write(batch++);
+		
+		// 除了开始阶段，正常主线程读写，之后一个线程在sort 
+		if(task->read(in))
+		{
+			threadPool.run(std::bind(&Task::sort, task));
+			active++; 
+		}
+	}
 	return batch;
 }
+
 
 // 描述文件的一条记录 
 struct Record
@@ -247,6 +339,7 @@ void merge(const int batch)
 	}
 }
 
+
 // 外部排序文件argv[1] 
 int main(int argc, char* argv[])
 {
@@ -254,13 +347,16 @@ int main(int argc, char* argv[])
 	
 	{ // 设置进程虚拟地址空间为3GB 
 		size_t kOneGB=1024*1024*1024;
-		rlimit rl={3.0*kOneGB, 3.0*kOneGB };
+		rlimit rl={4.0*kOneGB, 4.0*kOneGB };
 		setrlimit(RLIMIT_AS, &rl);
 	}
 	
 	// 先分块排序，输出batch个有序小文件 
 	int batch=sortSplit(argv[1]);
 	
+	if (batch == 0)
+	{
+	}
 	if(batch==1) 
 	{
 		unlink("output"); // 从文件系统中删除output，删除output文件 
