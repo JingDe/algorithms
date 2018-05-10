@@ -4,7 +4,7 @@
 #include<functional>
 #include<string>
 
-class Thread : noncopyable {
+class Thread {
 public:
 	typedef std::function<void(void)> ThreadFunc; // 线程函数类型
 
@@ -26,6 +26,9 @@ private:
 
 	bool started_;
 	bool joined_;
+	
+	Thread(const Thread&);
+	Thread& operator=(const Thread&);
 };
 
 #endif 

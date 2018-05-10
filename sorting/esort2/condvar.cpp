@@ -1,24 +1,10 @@
-
+#include"condvar.h"
+#include"mutex.h"
 #include"pthread_util.h"
 
-class Mutex;
+#include<cstdint>
 
-class CondVar {
-public:
-	explicit CondVar(Mutex* mu);
-	~CondVar();
-
-	void Wait();
-	void waitForSeconds(int secs);
-	void Signal();
-	void SignalAll();
-
-private:
-	Mutex * mu_;
-
-	pthread_cond_t cv_;
-};
-
+#include<time.h>
 
 CondVar::CondVar(Mutex* mu) :mu_(mu)
 {
@@ -37,7 +23,7 @@ void CondVar::Wait()
 	PthreadCall("wait", pthread_cond_wait(&cv_, &mu_->mu_));
 }
 
-void CondVar::waitForSeconds(int secs)
+void CondVar::WaitForSeconds(int secs)
 {
 	struct timespec abstime;
 	/*struct timespec{

@@ -1,10 +1,13 @@
 #include"ThreadPool.h"
+#include"mutex_lock.h"
 
-#incluce<exception>
+#include<exception>
+#include<algorithm>
+#include<functional>
 
 ThreadPool::ThreadPool()
 	:mutex_(),
-	cond_(mutex_),
+	cond_(&mutex_),
 	running_(false)
 {
 }
@@ -21,16 +24,16 @@ void ThreadPool::start(int numThreads)
 	threads_.reserve(numThreads);
 	for(int i=0; i<numThreads; ++i)
 	{
-		threads_.push_back(new Thread(std::bind(&ThreadPool::runInThread, this));
-		threads_[i].start();
+		threads_.push_back(std::make_shared<Thread>( std::bind(&ThreadPool::runInThread, this) ));
+		threads_[i]->start();
 	}
 } 
 
 void ThreadPool::stop()
 {
 	running_=false;
-	cond_.notifyAll();
-	for_each(threads_.begin(), threads_.end(), std::bind(&Thread::join(), _1));
+	cond_.SignalAll();
+	for_each(threads_.begin(), threads_.end(), std::bind(&Thread::join, std::placeholders::_1));
 }
 
 void ThreadPool::run(const Task& task)
@@ -41,7 +44,7 @@ void ThreadPool::run(const Task& task)
 	{
 		MutexLock lock(mutex_);
 		queue_.push_back(task);
-		cond_.notify();
+		cond_.Signal();
 	}
 }
 
@@ -49,7 +52,7 @@ ThreadPool::Task ThreadPool::take()
 {
 	MutexLock lock(mutex_);
 	while(queue_.empty()  && running_)
-		cond_.wait();
+		cond_.Wait();
 	Task task;
 	if(!queue_.empty())
 	{
@@ -71,13 +74,13 @@ void ThreadPool::runInThread()
 	}
 	catch (const std::exception& ex)
   {
-    fprintf(stderr, "exception caught in ThreadPool %s\n", name_.c_str());
+    fprintf(stderr, "exception caught in ThreadPool\n");
     fprintf(stderr, "reason: %s\n", ex.what());
     abort();
   }
   catch (...)
   {
-    fprintf(stderr, "unknown exception caught in ThreadPool %s\n", name_.c_str());
+    fprintf(stderr, "unknown exception caught in ThreadPool\n");
     abort();
   }
 }

@@ -1,26 +1,7 @@
+#include"mutex.h"
 
+#include<pthread.h>
 #include"pthread_util.h"
-
-class CondVar;
-
-class Mutex {
-public:
-	Mutex();
-	~Mutex();
-
-	void Lock();
-	void Unlock();
-	void AssertHeld();
-
-	friend CondVar;
-
-private:
-	pthread_mutex_t mu_;
-
-	Mutex(const Mutex&);
-	void operator=(const Mutex&);
-};
-
 
 Mutex::Mutex()
 {

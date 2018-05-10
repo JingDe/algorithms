@@ -211,6 +211,8 @@ public:
 		{
 			char output[256];
 			snprintf(output, sizeof output, "tmp%d", batch);
+			
+			OutputFile out(output);
 			for(std::vector<Key>::iterator it=keys_.begin(); it!=keys_.end(); ++it)
 				out.writeLine(data_[it->index]);
 		}
@@ -231,10 +233,12 @@ private:
 	static int s_created;
 };
 
+int Task::s_created=0;
+
 // 主线程读写，线程池在内存中排序 
 int sortSplit(const char* filename) 
 {
-	InputFile in(fileanme);
+	InputFile in(filename);
 	BlockingQueue<TaskPtr> queue; // 存放排好序的task
 	ThreadPool threadPool;
 	threadPool.start(2);
@@ -253,7 +257,7 @@ int sortSplit(const char* filename)
 		TaskPtr task2(new Task(&queue));
 		if(task2->read(in))
 		{
-			threadPool.run(std::bind(&Task::sort, task2); // sort后，将task压入queue 
+			threadPool.run(std::bind(&Task::sort, task2)); // sort后，将task压入queue 
 			active++;
 		}
 	}

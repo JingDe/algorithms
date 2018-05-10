@@ -1,3 +1,10 @@
+#ifndef THREADPOOL_H_
+#define THREADPOOL_H_
+
+#include<vector>
+#include<deque>
+#include<memory>
+#include<functional>
 
 #include"mutex.h" 
 #include"condvar.h"
@@ -9,7 +16,7 @@ public:
 	typedef std::shared_ptr<Thread> ThreadPtr;
 	typedef std::function<void ()> Task;
 	
-	explicit ThreadPool();
+	ThreadPool();
 	~ThreadPool();
 	
 	void start(int numThreads);
@@ -22,8 +29,10 @@ private:
 	Task take();
 	
 	Mutex mutex_;
-	Condition cond_;	
+	CondVar cond_;	
 	std::vector<ThreadPtr> threads_;
 	std::deque<Task> queue_;
 	bool running_;	
 };
+
+#endif

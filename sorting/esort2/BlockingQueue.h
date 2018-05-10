@@ -1,3 +1,7 @@
+#ifndef BLOCKING_QUEUE_H_
+#define BLOCKING_QUEUE_H_
+
+#include<deque>
 
 #include"mutex.h"
 #include"condvar.h"
@@ -8,21 +12,24 @@ class BlockingQueue
 {
 public:
 	BlockingQueue()
-		:mutex_(),notEmpty_(mutex_),queue_(){}
+		:mutex_(),
+		notEmpty_(&mutex_),
+		queue_()
+	{}
 	
 	void put(const T& x)
 	{
 		MutexLock lock(mutex_);
 		queue_.push_back(x);
-		notEmpty_.notify();
+		notEmpty_.Signal();
 	}
 	
 	T take()
 	{
 		MutexLock lock(mutex_);
-		while(queue_.empty)
+		while(queue_.empty())
 		{
-			notEmpty_.wait();
+			notEmpty_.Wait();
 		}
 		T front(queue_.front());
 		queue_.pop_front();
@@ -37,6 +44,8 @@ public:
 	
 private:
 	Mutex mutex_;
-	Condition notEmpty_;
+	CondVar notEmpty_;
 	std::deque<T> queue_;	
-}
+};
+
+#endif
