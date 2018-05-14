@@ -73,14 +73,14 @@ void ThreadPool::runInThread()
 		}
 	}
 	catch (const std::exception& ex)
-  {
-    fprintf(stderr, "exception caught in ThreadPool\n");
-    fprintf(stderr, "reason: %s\n", ex.what());
-    abort();
-  }
-  catch (...)
-  {
-    fprintf(stderr, "unknown exception caught in ThreadPool\n");
-    abort();
-  }
+	{
+		fprintf(stderr, "exception caught in ThreadPool\n");
+		fprintf(stderr, "reason: %s\n", ex.what());
+		abort();
+	}
+	catch (...)
+	{
+		fprintf(stderr, "unknown exception caught in ThreadPool\n");
+		abort();
+	}
 }
