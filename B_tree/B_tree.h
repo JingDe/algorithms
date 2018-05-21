@@ -1,19 +1,15 @@
-// @norah
+// @author: norah
 
-// B树实现
-//M叉树
-static int M=5;
+// B+树实现
+static int M=5;//M叉树
 static int L=5;//规定叶节点的数据项的个数
 
 typedef keytype int;
 typedef valuetype int;
 
 // 根结点：或者是叶节点，或者是儿子数在2和M之间
+// 除根以外的非叶节点：M/2~M个子结点，和少于1个的键; 键i代表子树i+1中的最小的键
 
-
-// 非叶节点
-// 除根以外的非叶节点：M/2~M个子结点，和少于1的个数的键
-		// 键i代表子树i+1中的最小的键
 class BTNode{
 public:
 	//bool isLeaf_; // 是否是叶节点，叶节点没有儿子，只有键
@@ -21,7 +17,6 @@ public:
 	std::set<keytype> keys_; // sz_个键，有序
 			
 	union{
-				//std::set<BTNode*> children_; // sz_+1个儿子
 		std::vector<BTNode*> children_; // 有序
 		std::vector<LeafNode*> leafs_;//最后一层非叶结点
 	};
@@ -40,8 +35,8 @@ public:
 };
 
 
-// B树结构
-class BTree{
+// B+树结构
+class BPlusTree{
 private:
 	BTNode* root_;
 	
