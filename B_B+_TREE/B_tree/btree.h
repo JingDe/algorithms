@@ -2,16 +2,17 @@
 #define BTREE_H_
 
 #include<cstdio>
+#include<cassert>
 #include<algorithm>
-#include<list>
+//#include<list>
 #include<vector>
 #include<stack> 
 #include<string>
 #include<sstream>
 
-static const int M=5; // M²æBÊ÷
-static const int MAX=M-1; // Ã¿¸ö½Úµã×î¶àM-1¸ö¼ÇÂ¼
-static const int MIN=(M+1)/2-1; // ·Ç¸ù½Úµã×îÉÙmath.ceil(m/2)-1¸ö¼ÇÂ¼
+static const int M=5; // Må‰Bæ ‘
+static const int MAX=M-1; // æ¯ä¸ªèŠ‚ç‚¹æœ€å¤šM-1ä¸ªè®°å½•
+static const int MIN=(M+1)/2-1; // éæ ¹èŠ‚ç‚¹æœ€å°‘math.ceil(m/2)-1ä¸ªè®°å½•
 
 
 template<typename keytype, typename valuetype>
@@ -25,7 +26,8 @@ template<typename keytype, typename valuetype>
 class BTNode{
 public:
 	
-	struct RecordType{
+	class RecordType{
+	public:
 		keytype key;
 		valuetype value;	
 		
@@ -43,13 +45,20 @@ public:
 		{
 			
 		}
+		
+		RecordType& operator=(const RecordType & rhs)
+		{
+			key=rhs.key;
+			value=rhs.value;
+			return *this;
+		}
 	};
 	
 private:	
 	BTNode* parent_;
-	int num_;	// ¼ÇÂ¼¸öÊı
-	std::list<RecordType> records_; //¼ÇÂ¼ÁĞ±í£¬ÓĞĞò, ÏÂ±ê0~num_-1
-	std::vector<BTNode*> children_; // ×Ó½ÚµãÁĞ±í, ÏÂ±ê0~num_
+	int num_;	// è®°å½•ä¸ªæ•°
+	std::vector<RecordType> records_; //è®°å½•åˆ—è¡¨ï¼Œæœ‰åº, ä¸‹æ ‡0~num_-1
+	std::vector<BTNode*> children_; // å­èŠ‚ç‚¹åˆ—è¡¨, ä¸‹æ ‡0~num_
 	
 	
 public:
@@ -61,7 +70,7 @@ public:
 	}
 	
 	int FindIdx();
-	void addRecordWithRightChild(const struct RecordType& record, struct BTNode* rightChild);
+	void addRecordWithRightChild(const RecordType& record, BTNode* rightChild);
 	void split(BTNode** rightN, RecordType *mid);
 	
 	std::string toString();
@@ -83,7 +92,7 @@ bool operator==(const typename BTNode<keytype, valuetype>::RecordType& lhs, cons
 
 template<typename keytype, typename valuetype>
 BTNode<keytype, valuetype>::BTNode()
-	:parent_(0)
+	:parent_(0),num_(0),records_(),children_()
 {
 	
 }
@@ -95,15 +104,19 @@ BTNode<keytype, valuetype>::~BTNode()
 {
 	//for(std::vector<BTNode*>::it=children_.begin(); it!=children_.end(); it++)
 	//	delete *it;
-	
+	parent_=0;
+	num_=0;
+	records_.clear();
+	children_.clear();
 }
 
 template<typename keytype, typename valuetype>
-void BTNode<keytype, valuetype>::addRecordWithRightChild(const struct RecordType& record, struct BTNode* rightChild)
+void BTNode<keytype, valuetype>::addRecordWithRightChild(const RecordType& record, BTNode* rightChild)
 {		
-	//typename std::list<RecordType>::iterator it=upper_bound(records_.begin(), records_.end(), record);
-	//int idx=it-records_.begin();// È·¶¨ĞÂ¼ÍÂ¼recordÓ¦¸ÃÔÚ½ÚµãµÄrecords_ÖĞµÄÎ»ÖÃ
-	typename std::list<RecordType>::iterator it=records_.begin();
+	//typename std::vector<RecordType>::iterator it=upper_bound(records_.begin(), records_.end(), record);
+	//int idx=it-records_.begin();// ç¡®å®šæ–°çºªå½•recordåº”è¯¥åœ¨èŠ‚ç‚¹çš„records_ä¸­çš„ä½ç½®
+	
+	typename std::vector<RecordType>::iterator it=records_.begin();
 	int idx=0;
 	for(; it!=records_.end(); it++)
 	{		
@@ -111,6 +124,15 @@ void BTNode<keytype, valuetype>::addRecordWithRightChild(const struct RecordType
 			break;
 		idx++;
 	}
+	
+	/*typename std::list<RecordType>::iterator it=records_.begin();
+	int idx=0;
+	for(; it!=records_.end(); it++)
+	{		
+		if(it->key>record.key)
+			break;
+		idx++;
+	}*/
 	
 	records_.insert(it, record);
 	children_.insert(children_.begin()+idx+1, rightChild);
@@ -120,49 +142,56 @@ void BTNode<keytype, valuetype>::addRecordWithRightChild(const struct RecordType
 
 
 
-// ·ÖÁÑ½Úµãp£¬»ñµÃÓÒ±ß½ÚµãrightN ºÍÖĞ¼ä¼ÇÂ¼
+// åˆ†è£‚èŠ‚ç‚¹pï¼Œè·å¾—å³è¾¹èŠ‚ç‚¹rightN å’Œä¸­é—´è®°å½•
 template<typename keytype, typename valuetype>
 void BTNode<keytype, valuetype>::split(BTNode** rightN, RecordType *mid)
 {
+	printf("ç»“ç‚¹åˆ†è£‚å‰ï¼š%s\n", toString().c_str());
+	
 	BTNode* rightNode;
 	//BTNode *parent=p->parent_;
+		
+	// åˆ†è£‚åå·¦è¾¹èŠ‚ç‚¹ä¿ç•™leftä¸ªé”®ï¼Œå³è¾¹ä¿ç•™rightä¸ªé”®ï¼Œä¸­é—´ä¸€ä¸ªæ’å…¥åˆ°çˆ¶èŠ‚ç‚¹
+	int left=(num_-1)/2; // p->num_ç­‰äºM,  ä¸‹æ ‡0~left-1
+	int right=num_-left-1; // ä¸‹æ ‡ left+1~p->num_-1
 	
-	bool isLeaf;
-	if(children_.empty())
-		isLeaf=true;
-	else
-		isLeaf=false;
+	*mid=records_[left];  // ä¸‹æ ‡left, vector
 	
-	// ·ÖÁÑºó×ó±ß½Úµã±£Áôleft¸ö¼ü£¬ÓÒ±ß±£Áôright¸ö¼ü£¬ÖĞ¼äÒ»¸ö²åÈëµ½¸¸½Úµã
-	int left=(num_-1)/2; // p->num_µÈÓÚM,  ÏÂ±ê0~left-1
-	int right=num_-left-1; // ÏÂ±ê left+1~p->num_-1
+	printf("åˆ†è£‚ä¸­ï¼šå·¦è¾¹0~~%d, ä¸­é—´key=%d, å³è¾¹%d~~%d\n", left-1, *mid, left+1, num_-1);
 	
-	//*mid=records_[left];  // ÏÂ±êleft, vector
-	//*mid=getIdx(records_, left);//list
-	typename std::list<RecordType>::iterator ite=records_.begin();
+	/*typename std::list<RecordType>::iterator ite=records_.begin();//list
 	for(int i=0; i<left; i++)
 	{
 		ite++;
 	}
-	*mid=*ite;
+	*mid=*ite;*/
 	
-	rightNode=*rightN; // *rightN=rightNode;
-	*rightN=new BTNode();				
-	rightNode->num_=right;
-	
-	typename std::list<RecordType>::iterator ite2=records_.begin();
+
+	*rightN=new BTNode();
+	rightNode=*rightN;				
+	rightNode->num_=right;	
+	/*typename std::list<RecordType>::iterator ite2=records_.begin();
 	for(int i=0; i<left+1; i++)
 		ite2++;
-	rightNode->records_.assign(ite2, records_.end());
-	//rightNode->records_.assign(records_.begin()+left+1, records_.end());
-	if(!isLeaf)
+	rightNode->records_.assign(ite2, records_.end());*/
+	//rightNode->records_.assign(records_.begin()+left+1, records_.end());//p->records_[left+1, num_-1]//èµ‹å€¼å‡½æ•°ï¼Ÿï¼Ÿ
+	for(int i=left+1; i<num_; i++)
+	{
+		//RecordType tempRecord(records_[i].key, records_[i].value);
+		RecordType tempRecord = records_[i];
+		rightNode->records_.push_back(tempRecord);
+	}
+	if(!isLeaf())
 		rightNode->children_.assign(children_.begin()+left+1, children_.end());// p->children_[left+1...]
 	//rightNode->parent_=parent;
 	
 	num_=left;
 	records_.resize(left);
-	if(!isLeaf)
+	if(!isLeaf())
 		children_.resize(left+1);// children_[0...left]
+	
+	printf("ç»“ç‚¹åˆ†è£‚åï¼š%s\n", toString().c_str());
+	printf("æ–°ç»“ç‚¹ï¼š%s\n", rightNode->toString().c_str());
 }
 
 template<typename keytype, typename valuetype>
@@ -171,7 +200,8 @@ int BTNode<keytype, valuetype>::FindIdx()
 	if(parent_==0)
 		return -1;
 	
-	for(typename std::list<BTNode*>::iterator it=parent_->children_.begin(); 
+	//for(typename std::list<BTNode*>::iterator it=parent_->children_.begin();
+	for(typename std::vector<BTNode*>::iterator it=parent_->children_.begin();  
 		it!=parent_->children_.end(); it++)
 	{
 		if(*it==this)
@@ -186,7 +216,8 @@ std::string BTNode<keytype, valuetype>::toString()
 	std::string res;
 	std::ostringstream oss;
 	oss<<"<"<<num_<<" |";
-	for(typename std::list<RecordType>::iterator it=records_.begin(); it!=records_.end(); it++)
+	//for(typename std::list<RecordType>::iterator it=records_.begin(); it!=records_.end(); it++)
+	for(typename std::vector<RecordType>::iterator it=records_.begin(); it!=records_.end(); it++)
 		oss<<" "<<it->key;
 	oss<<">";
 	res=oss.str();
@@ -264,21 +295,22 @@ BTree<keytype, valuetype>::~BTree()
 }
 
 
-// ²åÈëÒ»Ìõ¼ÇÂ¼£¬ÈôÒÑ´æÔÚÔò¸üĞÂvalue£¬·ñÔò²åÈëÒ¶½ÚµãÖĞ
+// æ’å…¥ä¸€æ¡è®°å½•ï¼Œè‹¥å·²å­˜åœ¨åˆ™æ›´æ–°valueï¼Œå¦åˆ™æ’å…¥å¶èŠ‚ç‚¹ä¸­
 template<typename keytype, typename valuetype>
 void BTree<keytype, valuetype>::Insert(const keytype& key, const valuetype& value)
 {
-	printf("\n\n*** ²åÈë<%d, %d> ***\n", key, value);
+	printf("\n\n*** æ’å…¥<%d, %d> ***\n", key, value);
 	
 	BTNode<keytype, valuetype> *p=root;
 	BTNode<keytype, valuetype> *rightNode;
-	typename BTNode<keytype, valuetype>::RecordType newrecord(key, valuetype());
+	typename BTNode<keytype, valuetype>::RecordType newrecord(key, value);
 	int idx;
-	typename std::list<typename BTNode<keytype, valuetype>::RecordType>::iterator it;
+	//typename std::list<typename BTNode<keytype, valuetype>::RecordType>::iterator it;
+	typename std::vector<typename BTNode<keytype, valuetype>::RecordType>::iterator it;
 	
 	if(root==0)
 	{
-		printf("²åÈë¿Õroot\n"); 
+		printf("æ’å…¥ç©ºroot\n"); 
 		root=new BTNode<keytype, valuetype>();
 		root->num_=1;
 		root->records_.push_back(newrecord);
@@ -287,64 +319,69 @@ void BTree<keytype, valuetype>::Insert(const keytype& key, const valuetype& valu
 	}
 	while(p)
 	{
-		if(p->isLeaf()) 
-			break; // µ±pÎŞ¶ù×Ó½Úµã£¬ÍË³öÑ­»·
+		//idxæ—¢æ˜¯ç¬¬ä¸€ä¸ªå¤§äºç­‰äºæ–°çºªå½•çš„è®°å½•ç´¢å¼•ï¼Œä¹Ÿæ˜¯å¯èƒ½çš„ä¸‹ä¸€ä¸ªè€ƒè™‘çš„å„¿å­ç»“ç‚¹çš„ç´¢å¼•
 		
-		// lower_boundÊÇ´óÓÚµÈÓÚ£¬upper_boundÊÇ´óÓÚ
-		//it=lower_bound(p->records_.begin(), p->records_.end(), newrecord);//²éÕÒ¼ÇÂ¼µÄÎ»ÖÃ
-		for(it=p->records_.begin(); it!=p->records_.end(); it++)
+		// lower_boundæ˜¯å¤§äºç­‰äºï¼Œupper_boundæ˜¯å¤§äº
+		//it=lower_bound(p->records_.begin(), p->records_.end(), newrecord);//æŸ¥æ‰¾è®°å½•çš„ä½ç½®,vector
+		for(it=p->records_.begin(); it!=p->records_.end(); it++)//list
 		{
 			if(it->key>=newrecord.key)
 				break;
 		}
+		
 		if(it!=p->records_.end()  &&  it->key==key)
 		{
-			printf("¸üĞÂ½Úµã: %s\n", p->toString().c_str());
+			printf("æ›´æ–°èŠ‚ç‚¹: %s\n", p->toString().c_str());
 			it->value=value;
-			printf("¸üĞÂºó½Úµã: %s\n", p->toString().c_str());
+			printf("æ›´æ–°åèŠ‚ç‚¹: %s\n", p->toString().c_str());
 			return;
 		}
 		
 		if(it!=p->records_.end())
 		{
-			//idx=it - p->records_.begin();//vectorµü´úÆ÷
-			idx=std::distance(it, p->records_.begin());//listµü´úÆ÷
+			idx=it - p->records_.begin();//vectorè¿­ä»£å™¨
+			//idx=std::distance(it, p->records_.begin());//listè¿­ä»£å™¨
+			printf("middle child: %d\n", idx);
 		}
 		else 
-		{
-			idx=p->num_;// ×ßµ½×îºóÒ»¸ö¶ù×Ó½Úµã
+		{			
+			idx=p->num_;// èµ°åˆ°æœ€åä¸€ä¸ªå„¿å­èŠ‚ç‚¹
+			printf("last child: %d, %d\n", p->num_, idx);
 		}		
 		
-		
-		p=p->children_[idx]; // ¶¨Î»µ½ÏàÓ¦¶ù×Ó½Úµã
+		if(p->isLeaf()) 
+			break; // å½“pæ— å„¿å­èŠ‚ç‚¹ï¼Œé€€å‡ºå¾ªç¯
+		p=p->children_[idx]; // å®šä½åˆ°ç›¸åº”å„¿å­èŠ‚ç‚¹
 	}
 
-	printf("²åÈëÒ¶½Úµã: %s\n", p->toString().c_str());
-	//´Ë´¦£¬pÊÇÒ¶½Úµã
+	printf("æ’å…¥å¶èŠ‚ç‚¹: %s\n", p->toString().c_str());
+	//æ­¤å¤„ï¼Œpæ˜¯å¶èŠ‚ç‚¹
 	
 	p->num_++;
-	p->records_.insert(it, newrecord); // Òì³£ÍË³ö£¿£¿ 
-	printf("²åÈëÖ®ºóÁÙÊ±: %s\n", p->toString().c_str());
+	printf("p->records_.size()=%d, idx=%d\n", p->records_.size(), idx);
+	p->records_.insert(it, newrecord); 
+	assert(p->records_.size()==p->num_);
+	printf("æ’å…¥ä¹‹åä¸´æ—¶: %s\n", p->toString().c_str());
 
-	// ´ÓÒ¶½ÚµãÏòÉÏÉ¸Ñ¡
+	// ä»å¶èŠ‚ç‚¹å‘ä¸Šç­›é€‰
 	while(p->num_>=M  &&  p!=root)
 	{
-		printf("·ÖÁÑ½Úµã: %s\n", p->toString().c_str());
+		printf("åˆ†è£‚èŠ‚ç‚¹: %s\n", p->toString().c_str());
 		
-		BTNode<keytype, valuetype> *parent=p->parent_;//p²»Îªroot£¬Ôòparent²»Îª0
-		p->split(&rightNode, &newrecord); // ·ÖÁÑµ±Ç°½Úµãp£¬µÃµ½ĞÂµÄÓÒ°ë±ß½ÚµãºÍÖĞ¼äÎ»ÖÃµÄ¼ÇÂ¼
-		parent->addRecordWithRightChild(newrecord, rightNode);// ÁÙÊ±²åÈëÒ»¸ö¼ÇÂ¼ºÍ´¦ÓÚ¸Ã¼ÇÂ¼ÓÒ±ßµÄ¶ù×ÓÖ¸Õë
+		BTNode<keytype, valuetype> *parent=p->parent_;//pä¸ä¸ºrootï¼Œåˆ™parentä¸ä¸º0
+		p->split(&rightNode, &newrecord); // åˆ†è£‚å½“å‰èŠ‚ç‚¹pï¼Œå¾—åˆ°æ–°çš„å³åŠè¾¹èŠ‚ç‚¹å’Œä¸­é—´ä½ç½®çš„è®°å½•
+		parent->addRecordWithRightChild(newrecord, rightNode);// ä¸´æ—¶æ’å…¥ä¸€ä¸ªè®°å½•å’Œå¤„äºè¯¥è®°å½•å³è¾¹çš„å„¿å­æŒ‡é’ˆ
 		
 		p=parent;
 	}
-	if(p==root  &&  p->num_>=M) // ·ÖÁÑ¸ù½Úµã
+	if(p==root  &&  p->num_>=M) // åˆ†è£‚æ ¹èŠ‚ç‚¹
 	{
-		printf("·ÖÁÑ¸ù½Úµã: %s\n", p->toString().c_str());
+		printf("åˆ†è£‚æ ¹èŠ‚ç‚¹: %s\n", p->toString().c_str());
 		p->split(&rightNode, &newrecord);
 		
 		BTNode<keytype, valuetype> *newroot=new BTNode<keytype, valuetype>();
 		newroot->parent_=0;
-		newroot->num_==1;
+		newroot->num_=1;
 		newroot->records_.push_back(newrecord);
 		newroot->children_.push_back(p);
 		newroot->children_.push_back(rightNode);
@@ -363,7 +400,16 @@ bool BTree<keytype, valuetype>::Search(const keytype& key, valuetype *value)
 	//	return false;
 	while(cur)
 	{
-		typename std::list<typename BTNode<keytype, valuetype>::RecordType>::iterator it=lower_bound(cur->records_.begin(), cur->records_.end(), record);
+		//typename std::list<typename BTNode<keytype, valuetype>::RecordType>::iterator it=lower_bound(cur->records_.begin(), cur->records_.end(), record);
+		//typename std::vector<typename BTNode<keytype, valuetype>::RecordType>::iterator it=lower_bound(cur->records_.begin(), cur->records_.end(), record);
+		
+		typename std::vector<typename BTNode<keytype, valuetype>::RecordType>::iterator it;
+		for(it=cur->records_.begin(); it!=cur->records_.end(); it++)
+		{
+			if(it->key>=record.key)
+				break;
+		}
+		
 		if(it->key==key)
 		{
 			value=it->value;
@@ -381,17 +427,24 @@ template<typename keytype, typename valuetype>
 void BTree<keytype, valuetype>::Delete(const keytype& key)
 {
 	BTNode<keytype, valuetype> *cur=root;
-	struct RecordType record(key, valuetype());
+	typename BTNode<keytype, valuetype>::RecordType record(key, valuetype());
 	int idx;
 	BTNode<keytype, valuetype> *child;
-	typename std::list<typename BTNode<keytype, valuetype>::RecordType>::iterator it;
+	//typename std::list<typename BTNode<keytype, valuetype>::RecordType>::iterator it;
+	typename std::vector<typename BTNode<keytype, valuetype>::RecordType>::iterator it;
 	
-	//Ñ°ÕÒ´ıÉ¾³ı¼ÇÂ¼ËùÔÚ½Úµãcur
+	//å¯»æ‰¾å¾…åˆ é™¤è®°å½•æ‰€åœ¨èŠ‚ç‚¹cur
 	//if(root==0)
 	//	return;
 	while(cur)
 	{
-		it=lower_bound(cur->records_.begin(), cur->records_.end(), record);
+		//it=lower_bound(cur->records_.begin(), cur->records_.end(), record);
+		for(it=cur->records_.begin(); it!=cur->records_.end(); it++)//list
+		{
+			if(it->key>=record.key)
+				break;
+		}
+		
 		idx=it-cur->records_.begin();
 		
 		if(it->key==key)
@@ -405,12 +458,12 @@ void BTree<keytype, valuetype>::Delete(const keytype& key)
 		return;
 	
 	
-	if(cur->isLeaf()==false)//Èô´ıÉ¾³ı¼ÇÂ¼ËùÔÚ½Úµãcur²»ÊÇÒ¶×Ó½áµã£¬Ñ°ÕÒºó¼Ì¼ÇÂ¼ËùÔÚµÄÒ¶×Ó½áµãchild
+	if(cur->isLeaf()==false)//è‹¥å¾…åˆ é™¤è®°å½•æ‰€åœ¨èŠ‚ç‚¹curä¸æ˜¯å¶å­ç»“ç‚¹ï¼Œå¯»æ‰¾åç»§è®°å½•æ‰€åœ¨çš„å¶å­ç»“ç‚¹child
 	{
-		child=cur->children_[idx+1]; // ºó¼Ì½áµã
+		child=cur->children_[idx+1]; // åç»§ç»“ç‚¹
 		while(child->isLeaf()==false)
 			child=child->children[0];
-		it=child->records_[0];	// ÓÃºó¼Ì½áµãÌæ»»´ıÉ¾³ı¼ÇÂ¼
+		it=child->records_[0];	// ç”¨åç»§ç»“ç‚¹æ›¿æ¢å¾…åˆ é™¤è®°å½•
 		child->records_.pop_front();
 		child->num_--;
 		
@@ -436,7 +489,7 @@ void BTree<keytype, valuetype>::Delete(const keytype& key)
 			return;
 		}
 		
-		idx=cur->FindIdx(); // È·¶¨curÔÚÆä¸¸½ÚµãµÄ¶ù×Ó½ÚµãÁ´±íÖĞµÄË÷Òı
+		idx=cur->FindIdx(); // ç¡®å®šcuråœ¨å…¶çˆ¶èŠ‚ç‚¹çš„å„¿å­èŠ‚ç‚¹é“¾è¡¨ä¸­çš„ç´¢å¼•
 		
 		
 		BTNode<keytype, valuetype> *parent=cur->parent_;
@@ -466,11 +519,11 @@ void BTree<keytype, valuetype>::Delete(const keytype& key)
 		}
 		
 		
-		if(idx>0)// Óë×óĞÖµÜ½áµãºÏ²¢
+		if(idx>0)// ä¸å·¦å…„å¼Ÿç»“ç‚¹åˆå¹¶
 		{
 			merge(parent, idx-1, idx);
 		}
-		else// ÓëÓÒĞÖµÜ½áµãºÏ²¢
+		else// ä¸å³å…„å¼Ÿç»“ç‚¹åˆå¹¶
 		{
 			merge(parent, idx, idx+1);
 		}
@@ -486,7 +539,9 @@ void BTree<keytype, valuetype>::merge(BTNode<keytype, valuetype>* parent, int le
 	int mid=parent->records_[left];
 	
 	leftN->records_.push_back(mid);
-	leftN->records_.splice(leftN->records_.end(), rightN->records_);// list
+	//leftN->records_.splice(leftN->records_.end(), rightN->records_);// list
+	for(typename std::vector<typename BTNode<keytype, valuetype>::RecordType>::iterator it=rightN->records_.begin(); it!=rightN->records_.end(); it++)//vector
+		leftN->records_.push_back(*it);
 	//leftN->children_.splice(leftN->children_.end(), rightN->children_);// list
 	for(typename std::vector<BTNode<keytype, valuetype>*>::iterator it=rightN->children_.begin(); it!=rightN->children_.end(); it++)//vector
 		leftN->children_.push_back(*it);
