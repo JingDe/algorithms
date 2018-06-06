@@ -24,5 +24,11 @@ int main()
 	t1.Insert(6, 6);
 	t1.Print();
 	
+	t1.Delete(1);
+	t1.Print();
+	
+	t1.Delete(2);
+	t1.Print();
+	
 	return 0;
 }

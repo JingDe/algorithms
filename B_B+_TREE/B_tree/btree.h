@@ -56,7 +56,7 @@ public:
 	
 private:	
 	BTNode* parent_;
-	int num_;	// 记录个数
+	//int num_;	// 记录个数
 	std::vector<RecordType> records_; //记录列表，有序, 下标0~num_-1
 	std::vector<BTNode*> children_; // 子节点列表, 下标0~num_
 	
@@ -72,6 +72,10 @@ public:
 	int FindIdx();
 	void addRecordWithRightChild(const RecordType& record, BTNode* rightChild);
 	void split(BTNode** rightN, RecordType *mid);
+	
+	int num(){
+		return static_cast<int>(records_.size());
+	}
 	
 	std::string toString();
 	
@@ -92,7 +96,7 @@ bool operator==(const typename BTNode<keytype, valuetype>::RecordType& lhs, cons
 
 template<typename keytype, typename valuetype>
 BTNode<keytype, valuetype>::BTNode()
-	:parent_(0),num_(0),records_(),children_()
+	:parent_(0),records_(),children_()
 {
 	
 }
@@ -105,7 +109,6 @@ BTNode<keytype, valuetype>::~BTNode()
 	//for(std::vector<BTNode*>::it=children_.begin(); it!=children_.end(); it++)
 	//	delete *it;
 	parent_=0;
-	num_=0;
 	records_.clear();
 	children_.clear();
 }
@@ -152,12 +155,12 @@ void BTNode<keytype, valuetype>::split(BTNode** rightN, RecordType *mid)
 	//BTNode *parent=p->parent_;
 		
 	// 分裂后左边节点保留left个键，右边保留right个键，中间一个插入到父节点
-	int left=(num_-1)/2; // p->num_等于M,  下标0~left-1
-	int right=num_-left-1; // 下标 left+1~p->num_-1
+	int left=(num()-1)/2; // p->num_等于M,  下标0~left-1
+	int right=num()-left-1; // 下标 left+1~p->num_-1
 	
 	*mid=records_[left];  // 下标left, vector
 	
-	printf("分裂中：左边0~~%d, 中间key=%d, 右边%d~~%d\n", left-1, *mid, left+1, num_-1);
+	printf("分裂中：左边0~~%d, 中间key=%d, 右边%d~~%d\n", left-1, *mid, left+1, num()-1);
 	
 	/*typename std::list<RecordType>::iterator ite=records_.begin();//list
 	for(int i=0; i<left; i++)
@@ -169,13 +172,13 @@ void BTNode<keytype, valuetype>::split(BTNode** rightN, RecordType *mid)
 
 	*rightN=new BTNode();
 	rightNode=*rightN;				
-	rightNode->num_=right;	
+	//rightNode->num_=right;	
 	/*typename std::list<RecordType>::iterator ite2=records_.begin();
 	for(int i=0; i<left+1; i++)
 		ite2++;
 	rightNode->records_.assign(ite2, records_.end());*/
 	//rightNode->records_.assign(records_.begin()+left+1, records_.end());//p->records_[left+1, num_-1]//赋值函数？？
-	for(int i=left+1; i<num_; i++)
+	for(int i=left+1; i<num(); i++)
 	{
 		//RecordType tempRecord(records_[i].key, records_[i].value);
 		RecordType tempRecord = records_[i];
@@ -185,7 +188,7 @@ void BTNode<keytype, valuetype>::split(BTNode** rightN, RecordType *mid)
 		rightNode->children_.assign(children_.begin()+left+1, children_.end());// p->children_[left+1...]
 	//rightNode->parent_=parent;
 	
-	num_=left;
+	//num_=left;
 	records_.resize(left);
 	if(!isLeaf())
 		children_.resize(left+1);// children_[0...left]
@@ -215,7 +218,7 @@ std::string BTNode<keytype, valuetype>::toString()
 {
 	std::string res;
 	std::ostringstream oss;
-	oss<<"<"<<num_<<" |";
+	oss<<"<"<<num()<<" |";
 	//for(typename std::list<RecordType>::iterator it=records_.begin(); it!=records_.end(); it++)
 	for(typename std::vector<RecordType>::iterator it=records_.begin(); it!=records_.end(); it++)
 		oss<<" "<<it->key;
@@ -252,7 +255,7 @@ public:
 
 private:
 	void merge(BTNode<keytype, valuetype> * parent, int left, int right);
-
+	void borrow(BTNode<keytype, valuetype>* parent, int leftIdx, int rightIdx, bool left);
 	void dfs(BTNode<keytype, valuetype>* cur, int level);
 
 	BTNode<keytype, valuetype> *root;
@@ -312,7 +315,7 @@ void BTree<keytype, valuetype>::Insert(const keytype& key, const valuetype& valu
 	{
 		printf("插入空root\n"); 
 		root=new BTNode<keytype, valuetype>();
-		root->num_=1;
+		//root->num_=1;
 		root->records_.push_back(newrecord);
 		root->children_.clear();
 		return;
@@ -345,8 +348,8 @@ void BTree<keytype, valuetype>::Insert(const keytype& key, const valuetype& valu
 		}
 		else 
 		{			
-			idx=p->num_;// 走到最后一个儿子节点
-			printf("last child: %d, %d\n", p->num_, idx);
+			idx=p->num();// 走到最后一个儿子节点
+			printf("last child: %d, %d\n", p->num(), idx);
 		}		
 		
 		if(p->isLeaf()) 
@@ -357,35 +360,39 @@ void BTree<keytype, valuetype>::Insert(const keytype& key, const valuetype& valu
 	printf("插入叶节点: %s\n", p->toString().c_str());
 	//此处，p是叶节点
 	
-	p->num_++;
+	//p->num_++;
 	printf("p->records_.size()=%d, idx=%d\n", p->records_.size(), idx);
 	p->records_.insert(it, newrecord); 
-	assert(p->records_.size()==p->num_);
+	//assert(p->records_.size()==p->num_);
 	printf("插入之后临时: %s\n", p->toString().c_str());
 
 	// 从叶节点向上筛选
-	while(p->num_>=M  &&  p!=root)
+	while(p->num()>=M  &&  p!=root)
 	{
 		printf("分裂节点: %s\n", p->toString().c_str());
 		
 		BTNode<keytype, valuetype> *parent=p->parent_;//p不为root，则parent不为0
 		p->split(&rightNode, &newrecord); // 分裂当前节点p，得到新的右半边节点和中间位置的记录
 		parent->addRecordWithRightChild(newrecord, rightNode);// 临时插入一个记录和处于该记录右边的儿子指针
+		rightNode->parent_=parent;
 		
 		p=parent;
 	}
-	if(p==root  &&  p->num_>=M) // 分裂根节点
+	if(p==root  &&  p->num()>=M) // 分裂根节点
 	{
 		printf("分裂根节点: %s\n", p->toString().c_str());
 		p->split(&rightNode, &newrecord);
 		
 		BTNode<keytype, valuetype> *newroot=new BTNode<keytype, valuetype>();
 		newroot->parent_=0;
-		newroot->num_=1;
+		//newroot->num_=1;
 		newroot->records_.push_back(newrecord);
 		newroot->children_.push_back(p);
 		newroot->children_.push_back(rightNode);
 		root=newroot;
+		
+		p->parent_=root;
+		rightNode->parent_=root;
 	}
 	
 }
@@ -426,6 +433,8 @@ bool BTree<keytype, valuetype>::Search(const keytype& key, valuetype *value)
 template<typename keytype, typename valuetype>
 void BTree<keytype, valuetype>::Delete(const keytype& key)
 {
+	printf("\n\n*** 删除key=%d ***\n", key);
+
 	BTNode<keytype, valuetype> *cur=root;
 	typename BTNode<keytype, valuetype>::RecordType record(key, valuetype());
 	int idx;
@@ -455,65 +464,93 @@ void BTree<keytype, valuetype>::Delete(const keytype& key)
 		cur=cur->children_[idx];
 	}
 	if(cur==0)
+	{
+		printf("删除中，不存在该key，返回\n");
 		return;
+	}
 	
 	
 	if(cur->isLeaf()==false)//若待删除记录所在节点cur不是叶子结点，寻找后继记录所在的叶子结点child
 	{
+		printf("删除中，待删除记录不在叶子结点，寻找后继的叶子结点的记录替换它\n");
 		child=cur->children_[idx+1]; // 后继结点
 		while(child->isLeaf()==false)
-			child=child->children[0];
-		it=child->records_[0];	// 用后继结点替换待删除记录
-		child->records_.pop_front();
-		child->num_--;
+			child=child->children_[0];
+		printf("删除中，找到后继叶子结点：%s\n", child->toString().c_str());
+		*it=child->records_[0];	// 用后继结点替换待删除记录
+		//child->records_.pop_front();
+		child->records_.erase(child->records_.begin());
+		//child->num_--;
 		
+		printf("删除中，当前处理删除后继记录之后的叶子结点：%s\n", child->toString().c_str());
 		cur=child;
 	}
 	else
 	{
-		cur->erase(it);
-		cur->num_--;
+		printf("删除中，待删除结点是叶子结点%s，从中删除该key\n", cur->toString().c_str());
+		cur->records_.erase(it);
+		//cur->num_--;
 	}
 	
 	while(true)
 	{
-		if(cur->num_>=MIN)
+		if(cur->num()>=MIN)
+		{
+			printf("删除中，当前结点的记录数满足最小值：%s, 返回\n", cur->toString().c_str());
 			return;
+		}
 		
-		if(cur==root &&  cur->num_>=1)
+		if(cur==root &&  cur->num()>=1)
+		{
+			printf("删除中，当前结点为root，满足最少一个key:%s\n", cur->toString().c_str());
 			return;
+		}
 		else if(cur==root)
 		{
+			printf("删除中，root记录数小于1, 更新新root:%s\n当前的B树：\n", root->toString().c_str());
+			Print();
+			BTNode<keytype, valuetype> *newroot=root->children_[0];
 			delete root;
-			root=0;
+			root=newroot;
+			//printf("更新后的树：");
+			//Print();
 			return;
 		}
 		
 		idx=cur->FindIdx(); // 确定cur在其父节点的儿子节点链表中的索引
-		
+		printf("当前结点：%s, 是父结点的第%d个儿子结点\n", cur->toString().c_str(), idx);
+		//assert(idx>=0);
 		
 		BTNode<keytype, valuetype> *parent=cur->parent_;
-		int siblingIdx;
-		BTNode<keytype, valuetype> *sibling;
+		
+		
+		int siblingIdx;//兄弟索引
+		BTNode<keytype, valuetype> *sibling;//兄弟结点
 		if(idx>0)
 		{
 			siblingIdx=idx-1;
 			sibling=parent->children_[siblingIdx]; 
-			if(sibling->num_>MIN+1)
+			
+			if(sibling->num()>=MIN+1)
 			{
-				cur->records_.insert(cur->records_.begin(), sibling->records_.back());
-				sibling->records_.pop_back();
+				printf("从左兄弟结点借一个记录：%s\n", sibling->toString().c_str());
+				borrow(parent, siblingIdx, idx, 1);
 				return;
 			}
 		}
 		else
 		{
-			siblingIdx=idx+1;
+			siblingIdx=idx+1;		
+			printf("右兄弟：siblingIdx=%d\n", siblingIdx);	
 			sibling=parent->children_[siblingIdx];
-			if(sibling->num_>MIN+1)
+			
+			if(sibling->num()>=MIN+1)
 			{
-				cur->records_.insert(cur->records_.end(), sibling->records_.front());
-				sibling->records_.pop_front();
+				printf("从右兄弟结点借一个记录：%s\n", sibling->toString().c_str());
+				//cur->records_.insert(cur->records_.end(), sibling->records_.front());
+				//sibling->records_.pop_front();
+				//sibling->records_.erase(sibling->records_.begin());
+				borrow(parent, idx, siblingIdx, 0);
 				return;
 			}
 		}
@@ -521,10 +558,12 @@ void BTree<keytype, valuetype>::Delete(const keytype& key)
 		
 		if(idx>0)// 与左兄弟结点合并
 		{
+			printf("与左兄弟结点、父结点记录合并\n");
 			merge(parent, idx-1, idx);
 		}
 		else// 与右兄弟结点合并
 		{
+			printf("与右兄弟结点、父结点记录合并\n");
 			merge(parent, idx, idx+1);
 		}
 		cur=parent;
@@ -536,19 +575,48 @@ void BTree<keytype, valuetype>::merge(BTNode<keytype, valuetype>* parent, int le
 {
 	BTNode<keytype, valuetype>* leftN=parent->children_[left];
 	BTNode<keytype, valuetype>* rightN=parent->children_[right];
-	int mid=parent->records_[left];
+	typename BTNode<keytype, valuetype>::RecordType mid=parent->records_[left];
 	
 	leftN->records_.push_back(mid);
 	//leftN->records_.splice(leftN->records_.end(), rightN->records_);// list
 	for(typename std::vector<typename BTNode<keytype, valuetype>::RecordType>::iterator it=rightN->records_.begin(); it!=rightN->records_.end(); it++)//vector
 		leftN->records_.push_back(*it);
+	//leftN->num_+=1+rightN->num_;
+		
 	//leftN->children_.splice(leftN->children_.end(), rightN->children_);// list
 	for(typename std::vector<BTNode<keytype, valuetype>*>::iterator it=rightN->children_.begin(); it!=rightN->children_.end(); it++)//vector
 		leftN->children_.push_back(*it);
 	
-	parent->records_.erase(parent->records_.begin()+left);//list
-	parent->children_.erase(parent->children_.begin()+left+1);//vector
-	parent->num_--;
+	
+	parent->records_.erase(parent->records_.begin()+left);
+	parent->children_.erase(parent->children_.begin()+right);
+	//parent->num_--;
+}
+
+
+template<typename keytype, typename valuetype>
+void BTree<keytype, valuetype>::borrow(BTNode<keytype, valuetype>* parent, int leftIdx, int rightIdx, bool left)
+{
+	typename BTNode<keytype, valuetype>::RecordType midRecord=parent->records_[leftIdx];
+	BTNode<keytype, valuetype> *leftNode=parent->children_[leftIdx];
+	BTNode<keytype, valuetype> *rightNode=parent->children_[rightIdx];
+	
+	if(left)// left为1表示从左兄弟结点借
+	{
+		rightNode->records_.insert(rightNode->records_.begin(), midRecord);
+		//rightNode->num_++;
+		parent->records_[leftIdx]=leftNode->records_.back();
+		leftNode->records_.pop_back();
+		//leftNode->num_--;
+	}
+	else
+	{
+		leftNode->records_.push_back(midRecord);
+		//leftNode->num_++;
+		parent->records_[leftIdx]=rightNode->records_.front();
+		rightNode->records_.erase(rightNode->records_.begin());
+		//rightNode->num_--;
+	}
 }
 
 
