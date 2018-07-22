@@ -15,10 +15,13 @@
 // A btree implementation of the STL set and map interfaces. A btree is both
 // smaller and faster than STL set/map. The red-black tree implementation of
 // STL set/map has an overhead of 3 pointers (left, right and parent) plus the
-// node color information for each stored value. So a set<int32> consumes 20
-// bytes for each value stored. This btree implementation stores multiple
+// node color information for each stored value.
+// So a set<int32> consumes 20 bytes for each value stored.
+
+// This btree implementation stores multiple
 // values on fixed size nodes (usually 256 bytes) and doesn't store child
-// pointers for leaf nodes. The result is that a btree_set<int32> may use much
+// pointers for leaf nodes.
+// The result is that a btree_set<int32> may use much
 // less memory per stored value. For the random insertion benchmark in
 // btree_test.cc, a btree_set<int32> with node-size of 256 uses 4.9 bytes per
 // stored value.
@@ -732,7 +735,7 @@ class btree_node {
  private:
   btree_node(const btree_node&);
   void operator=(const btree_node&);
-};
+}; // B树节点
 
 template <typename Node, typename Reference, typename Pointer>
 struct btree_iterator {

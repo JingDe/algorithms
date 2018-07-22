@@ -2,12 +2,12 @@
 /*
 Kruskal算法，求最小生成树
 算法思想：
-不优先考虑联通的情况，而是优先考虑寻找最小的边，再判断是否满足最少联通。
+不优先考虑联通的情况，而是优先考虑寻找最小的边，再判断是否满足最少连通。
 
 实现：
 使用堆来存放边的集合，每次选择最小权值需要O(log|E|)的时间
 
-已选择的所有边可以看成若干个等价类，每次添加新的边使用union操作
+已选择的所有边可以看成若干个等价类，一个连通分量一个等价类，每次添加新的边使用union操作
 
 
 实现思路：
@@ -67,7 +67,7 @@ void debug_print()
 		e1=it->second.first;
 		e2=it->second.second;
 		
-		printf("%d, %d : %d\n", e1, e2, w);
+		//printf("%d, %d : %d\n", e1, e2, w);
 	}
 }
 
@@ -104,7 +104,7 @@ int solve(int n)
 		e1=graph.begin()->second.first;
 		e2=graph.begin()->second.second;
 		
-		printf("%d —— %d : %d\n", e1, e2, w);
+		//printf("%d —— %d : %d\n", e1, e2, w);
 		
 		// graph.erase(w); 
 		graph.erase(graph.begin());
