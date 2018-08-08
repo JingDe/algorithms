@@ -137,6 +137,11 @@ inline void btree_swap_helper(T &a, T &b) {
   swap(a, b);
 }
 
+/*
+	if_<true, A, B>::type 为 A 
+	if_<false, A, B>::type 为 B 
+*/
+
 // A template helper used to select A or B based on a condition.
 template<bool cond, typename A, typename B>
 struct if_{
@@ -160,6 +165,9 @@ template <bool>
 struct CompileAssert {
 };
 
+/*
+	如果expr是true，该表达式能通过编译，否则不能
+*/
 #define COMPILE_ASSERT(expr, msg) \
   typedef CompileAssert<(bool(expr))> msg[bool(expr) ? 1 : -1]
 
@@ -423,9 +431,26 @@ struct btree_binary_search_compare_to {
   }
 };
 
+
+/*
+	B树节点：
+	m阶B树：
+	每个结点中存储了关键字（key）和关键字对应的数据（data），以及孩子结点的指针
+	每个节点最多m-1个关键字，最多m个子节点
+	根节点最少一个关键字
+	非根节点至少math.ceil(m/2)-1个关键字 
+	每个关键字的左子树中的所有关键字都小于它，而右子树中的所有关键字都大于它
+*/
 // A node in the btree holding. The same node type is used for both internal
 // and leaf nodes in the btree, though the nodes are allocated in such a way
 // that the children array is only valid in internal nodes.
+
+/*
+	模板类型表示？？
+	包含key、value、data类型的成员
+	
+	mutable_value_type是叶节点value数组的类型？？
+*/
 template <typename Params>
 class btree_node {
  public:
@@ -433,7 +458,7 @@ class btree_node {
   typedef btree_node<Params> self_type;
   typedef typename Params::key_type key_type;
   typedef typename Params::data_type data_type;
-  typedef typename Params::value_type value_type;
+  typedef typename Params::value_type value_type; // 节点的 关键字key-value 的类型
   typedef typename Params::mutable_value_type mutable_value_type;
   typedef typename Params::pointer pointer;
   typedef typename Params::const_pointer const_pointer;
@@ -471,49 +496,63 @@ class btree_node {
     std::is_floating_point<key_type>::value,
     linear_search_type, binary_search_type>::type search_type;
 
+	/*
+		节点的基本属性
+	*/
   struct base_fields {
-    typedef typename Params::node_count_type field_type;
+    typedef typename Params::node_count_type field_type; // 足够记录节点数的整形类型，uint16_t或者uint8_t
 
     // A boolean indicating whether the node is a leaf or not.
-    bool leaf;
+    bool leaf; // 是不是叶节点
     // The position of the node in the node's parent.
-    field_type position;
+    field_type position; // 节点在父节点中的位置
     // The maximum number of values the node can hold.
-    field_type max_count;
+    field_type max_count; // 节点包含的关键字value的最大个数？？
     // The count of the number of values in the node.
-    field_type count;
+    field_type count; // 节点实际包含的关键字value的个数
     // A pointer to the node's parent.
-    btree_node *parent;
+    btree_node *parent; // 父节点指针
   };
 
   enum {
-    kValueSize = params_type::kValueSize,
-    kTargetNodeSize = params_type::kTargetNodeSize,
+    kValueSize = params_type::kValueSize, // 叶节点的value字节大小，
+				// 即mutable_value_type类型（包含key和value？？）的字节大小？？
+    kTargetNodeSize = params_type::kTargetNodeSize,  // 一个B数节点的字节大小
 
     // Compute how many values we can fit onto a leaf node.
-    kNodeTargetValues = (kTargetNodeSize - sizeof(base_fields)) / kValueSize,
+    kNodeTargetValues = (kTargetNodeSize - sizeof(base_fields)) / kValueSize, // 一个叶节点的value的最大个数
     // We need a minimum of 3 values per internal node in order to perform
     // splitting (1 value for the two nodes involved in the split and 1 value
     // propagated to the parent as the delimiter for the split).
-    kNodeValues = kNodeTargetValues >= 3 ? kNodeTargetValues : 3,
+    kNodeValues = kNodeTargetValues >= 3 ? kNodeTargetValues : 3, // 实际value数组的个数，为了执行分裂，内部节点至少3个关键字value
 
     kExactMatch = 1 << 30,
     kMatchMask = kExactMatch - 1,
   };
 
+  /*
+		叶节点的属性：包含基本属性
+  */
   struct leaf_fields : public base_fields {
     // The array of values. Only the first count of these values have been
     // constructed and are valid.
-    mutable_value_type values[kNodeValues];
+    mutable_value_type values[kNodeValues]; // 关键字value的数组
   };
 
+  /*
+		内部节点的属性：
+		包含叶节点的value数组
+  */
   struct internal_fields : public leaf_fields {
     // The array of child pointers. The keys in children_[i] are all less than
     // key(i). The keys in children_[i + 1] are all greater than key(i). There
     // are always count + 1 children.
-    btree_node *children[kNodeValues + 1];
+    btree_node *children[kNodeValues + 1]; // 子节点指针的数组
   };
 
+  /*
+		节点包含的最右子节点，子节点的个数？？
+	*/
   struct root_fields : public internal_fields {
     btree_node *rightmost;
     size_type size;
@@ -684,17 +723,19 @@ class btree_node {
   // Swap the contents of "this" and "src".
   void swap(btree_node *src);
 
+	// 初始化一个叶节点
+	// 节点包含：base_fields + leaf_fields + internal_fields
   // Node allocation/deletion routines.
   static btree_node* init_leaf(
       leaf_fields *f, btree_node *parent, int max_count) {
-    btree_node *n = reinterpret_cast<btree_node*>(f);
-    f->leaf = 1;
-    f->position = 0;
-    f->max_count = max_count;
-    f->count = 0;
-    f->parent = parent;
+    btree_node *n = reinterpret_cast<btree_node*>(f); // 节点的类型，指针
+    f->leaf = 1; // 是叶节点
+    f->position = 0; // 节点在父节点中的位置为0
+    f->max_count = max_count; // 节点包含的关键字value的最大个数
+    f->count = 0; // 节点实际包含的关键字value的个数
+    f->parent = parent; // 节点的父节点
     if (!NDEBUG) {
-      memset(&f->values, 0, max_count * sizeof(value_type));
+      memset(&f->values, 0, max_count * sizeof(value_type)); // 初始化 节点的关键字values数组
     }
     return n;
   }
@@ -730,13 +771,18 @@ class btree_node {
   }
 
  private:
-  root_fields fields_;
+  root_fields fields_; // 节点的成员变量
 
  private:
   btree_node(const btree_node&);
   void operator=(const btree_node&);
 }; // B树节点
 
+
+/*
+	B树的迭代器类型：
+		
+*/
 template <typename Node, typename Reference, typename Pointer>
 struct btree_iterator {
   typedef typename Node::key_type key_type;
@@ -853,6 +899,11 @@ struct btree_internal_locate_compare_to {
   }
 };
 
+
+/*
+	B树结构：
+		模板参数？？Params 
+*/
 template <typename Params>
 class btree : public Params::key_compare {
   typedef btree<Params> self_type;
@@ -861,7 +912,7 @@ class btree : public Params::key_compare {
   typedef typename node_type::leaf_fields leaf_fields;
   typedef typename node_type::internal_fields internal_fields;
   typedef typename node_type::root_fields root_fields;
-  typedef typename Params::is_key_compare_to is_key_compare_to;
+  typedef typename Params::is_key_compare_to is_key_compare_to; // ???
 
   friend class btree_internal_locate_plain_compare;
   friend class btree_internal_locate_compare_to;
@@ -884,6 +935,9 @@ class btree : public Params::key_compare {
   // 0-size, the compiler doesn't have to reserve any space for it and
   // sizeof(empty_base_handle) will simply be sizeof(Data). Google [empty base
   // class optimization] for more details.
+  /*
+	空基类优化
+  */
   template <typename Base, typename Data>
   struct empty_base_handle : public Base {
     empty_base_handle(const Base &b, const Data &d)
@@ -893,6 +947,8 @@ class btree : public Params::key_compare {
     Data data;
   };
 
+  /*	叶节点个数、内部节点个数
+  */
   struct node_stats {
     node_stats(ssize_t l, ssize_t i)
         : leaf_nodes(l),
@@ -999,6 +1055,12 @@ class btree : public Params::key_compare {
     return std::make_pair(lower_bound(key), upper_bound(key));
   }
 
+  /*
+		B树的插入：
+		要求不插入已存在的值
+		返回值的bool表示插入是否成功
+		参数ValuePointer类型用来避免在插入不执行的情况下实例化value。如果key已经存在，value不被解引用
+  */
   // Inserts a value into the btree only if it does not already exist. The
   // boolean return value indicates whether insertion succeeded or failed. The
   // ValuePointer type is used to avoid instatiating the value unless the key
@@ -1007,6 +1069,9 @@ class btree : public Params::key_compare {
   template <typename ValuePointer>
   std::pair<iterator,bool> insert_unique(const key_type &key, ValuePointer value);
 
+  /*
+		
+  */
   // Inserts a value into the btree only if it does not already exist. The
   // boolean return value indicates whether insertion succeeded or failed.
   std::pair<iterator,bool> insert_unique(const value_type &v) {
@@ -1213,9 +1278,11 @@ class btree : public Params::key_compare {
 
  private:
   // Internal accessor routines.
-  node_type* root() { return root_.data; }
+  // root_.data 是 node_type*类型, btree_node<Params>*类型
+  node_type* root() { return root_.data; } 
   const node_type* root() const { return root_.data; }
-  node_type** mutable_root() { return &root_.data; }
+  // 可作为左值
+  node_type** mutable_root() { return &root_.data; } // 
 
   // The rightmost node is stored in the root node.
   node_type* rightmost() {
@@ -1257,11 +1324,18 @@ class btree : public Params::key_compare {
         mutable_internal_allocator()->allocate(sizeof(leaf_fields)));
     return node_type::init_leaf(p, parent, kNodeValues);
   }
+  /*
+	创建一个叶节点, 表示root_节点：
+		参数是 value_type的个数
+		leaf_fields: 
+		
+		调用节点的init_leaf方法
+  */
   node_type* new_leaf_root_node(int max_count) {
-    leaf_fields *p = reinterpret_cast<leaf_fields*>(
+    leaf_fields *p = reinterpret_cast<leaf_fields*>( /* 先分配作为根节点的叶节点的内存：base_fields和关键字数组 */
         mutable_internal_allocator()->allocate(
             sizeof(base_fields) + max_count * sizeof(value_type)));
-    return node_type::init_leaf(p, reinterpret_cast<node_type*>(p), max_count);
+    return node_type::init_leaf(p, reinterpret_cast<node_type*>(p), max_count); // root_节点的父节点是自身
   }
   void delete_internal_node(node_type *node) {
     node->destroy();
@@ -1379,33 +1453,52 @@ class btree : public Params::key_compare {
   }
 
  private:
-  empty_base_handle<internal_allocator_type, node_type*> root_;
+	// B树的根节点
+  empty_base_handle<internal_allocator_type, node_type*> root_; // 当 internal_allocator_type 大小为0，root_大小为 node_type*
 
  private:
   // A never instantiated helper function that returns big_ if we have a
   // key-compare-to functor or if R is bool and small_ otherwise.
+  /*
+		std::is_same<R, bool> 如果R是bool类型，value是true，否则是false
+		
+		如果 is_key_compare_to::value为true，并且 R是int类型，内部if_::type::value是true, 最终type是big_
+		如果 is_key_compare_to::value为false, 并且 R是bool类型, 内部if_::type::value是true, 最终type是big_
+		否则最终是small_
+		
+		即：如果 is_key_compare_to::value为true, 或者 R是bool类型，结果是big_
+  */
   template <typename R>
   static typename if_<
-   if_<is_key_compare_to::value,
-             std::is_same<R, int>,
-             std::is_same<R, bool> >::type::value,
-   big_, small_>::type key_compare_checker(R);
+   if_<is_key_compare_to::value, // 如果 is_key_compare_to::value 为true，内部if_的type是 std::is_same<R, int>
+             std::is_same<R, int>, // 否则是 std::is_same<R, bool>。
+             std::is_same<R, bool> >::type::value, // 
+					big_, 
+					small_>::type key_compare_checker(R);
 
   // A never instantiated helper function that returns the key comparison
   // functor.
   static key_compare key_compare_helper();
 
+  
   // Verify that key_compare returns a bool. This is similar to the way
   // is_convertible in base/type_traits.h works. Note that key_compare_checker
   // is never actually invoked. The compiler will select which
   // key_compare_checker() to instantiate and then figure out the size of the
   // return type of key_compare_checker() at compile time which we then check
   // against the sizeof of big_.
+  /*
+	验证 key_compare函数 返回bool
+	
+	
+  */
   COMPILE_ASSERT(
-      sizeof(key_compare_checker(key_compare_helper()(key_type(), key_type()))) ==
+      sizeof(  key_compare_checker(key_compare_helper()(key_type(), key_type()))  ) ==
       sizeof(big_),
       key_comparison_function_must_return_bool);
 
+	  // 要求 kTargetValues 的大小必须小于 base_fields::field_type
+	  // kNodeValues 表示？？
   // Note: We insist on kTargetValues, which is computed from
   // Params::kTargetNodeSize, must fit the base_fields::field_type.
   COMPILE_ASSERT(kNodeValues <
@@ -1415,10 +1508,11 @@ class btree : public Params::key_compare {
   // Test the assumption made in setting kNodeValueSpace.
   COMPILE_ASSERT(sizeof(base_fields) >= 2 * sizeof(void*),
                  node_space_assumption_incorrect);
-};
+}; // B树结构定义
+
 
 ////
-// btree_node methods
+// btree_node methods  btree_node实现
 template <typename P>
 inline void btree_node<P>::insert_value(int i, const value_type &x) {
   assert(i <= count());
@@ -1744,7 +1838,7 @@ template <typename P> template <typename ValuePointer>
 std::pair<typename btree<P>::iterator, bool>
 btree<P>::insert_unique(const key_type &key, ValuePointer value) {
   if (empty()) {
-    *mutable_root() = new_leaf_root_node(1);
+    *mutable_root() = new_leaf_root_node(1); // 空树，创建一个根节点
   }
 
   std::pair<iterator, int> res = internal_locate(key, iterator(root(), 0));
