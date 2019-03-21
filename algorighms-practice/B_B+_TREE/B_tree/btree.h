@@ -10,11 +10,13 @@
 #include<string>
 #include<sstream>
 
-static const int M=5; // M叉B树，所有节点包含x个记录和x+1个子树指针，每个记录包含一个关键字和一个指向对应数据的指针
-static const int MAX_KEY=M-1; // 每个节点最多M-1个关键字，最多M个子树
+// static const int M=5; // M叉B树，所有节点包含x个记录和x+1个子树指针，每个记录包含一个关键字和一个指向对应数据的指针
+// static const int MAX_KEY=M-1; // 每个节点最多M-1个关键字，最多M个子树
 
-static const int MIN_KEY=(M+1)/2-1; // 非根节点最少math.ceil(M/2)-1个关键字
-static const int MIN_KEY_ROOT=1; // 根节点最少1个关键字
+// static const int MIN_KEY=(M+1)/2-1; // 非根节点最少math.ceil(M/2)-1个关键字
+// static const int MIN_KEY_ROOT=1; // 根节点最少1个关键字
+
+static const int M_DEFAULT=4; // 默认4叉B树
 
 
 template<typename keytype, typename valuetype>
@@ -155,6 +157,10 @@ template<typename keytype, typename valuetype>
 void BTNode<keytype, valuetype>::split(BTNode** rightN, RecordType *mid)
 {
 	printf("结点分裂前：%s\n", toString().c_str());
+	if(parent_)
+	{
+		printf("分裂节点前，节点父节点：%s\n", parent_->toString().c_str());
+	}
 	
 	BTNode* rightNode;
 		
@@ -178,7 +184,16 @@ void BTNode<keytype, valuetype>::split(BTNode** rightN, RecordType *mid)
 	rightNode->parent_=parent_;
 	rightNode->records_.assign(records_.begin()+left+1, records_.end());  //p->records_[left+1, num_-1]//赋值函数？？
 	if(!isLeaf())
+	{
 		rightNode->children_.assign(children_.begin()+left+1, children_.end());// p->children_[left+1...]
+		for(typename std::vector<BTNode*>::iterator it=rightNode->children_.begin(); it!=rightNode->children_.end(); it++)
+		{
+			BTNode* oneChildNode=*it;
+			oneChildNode->parent_=rightNode;
+			// printf("rightNode %s has childNode %s\n", rightNode->toString().c_str(), it->toString().c_str());
+			// printf("rightNode's childNode %s has  parentNode %s\n", it->toString().c_str(), it->parent_->toString().c_str());
+		}
+	}
 	
 	
 	records_.resize(left);
@@ -187,6 +202,7 @@ void BTNode<keytype, valuetype>::split(BTNode** rightN, RecordType *mid)
 	
 	printf("结点分裂后：%s\n", toString().c_str());
 	printf("新结点：%s, 中间记录key %d\n", rightNode->toString().c_str(), mid->key);
+	
 }
 
 template<typename keytype, typename valuetype>
@@ -230,7 +246,6 @@ void BTNode<keytype, valuetype>::InsertLeafRecordData(int idx, keytype key, valu
 
 
 
-
 /* 
  *	BTree
  */
@@ -239,6 +254,7 @@ template<typename keytype, typename valuetype>
 class BTree{
 public:
 	BTree();
+	BTree(int m);
 	~BTree();
 	
 	bool Search(const keytype& key, valuetype *value);
@@ -249,6 +265,8 @@ public:
 	void Delete(const keytype& key);
 	
 	void Print();
+	
+	
 
 private:
 	bool Search_for_Insert(const keytype& key, valuetype **value, BTNode<keytype, valuetype>** leaf, int *idx);
@@ -267,12 +285,22 @@ private:
 	void dfs(BTNode<keytype, valuetype>* cur, int level);
 
 	BTNode<keytype, valuetype> *root;
+	
+	const int M; // M叉B树，所有节点包含x个记录和x+1个子树指针，每个记录包含一个关键字和一个指向对应数据的指针
+	const int MAX_KEY; // 每个节点最多M-1个关键字，最多M个子树
+
+	const int MIN_KEY; // 非根节点最少math.ceil(M/2)-1个关键字
+	const int MIN_KEY_ROOT; // 根节点最少1个关键字
 };
 
 template<typename keytype, typename valuetype>
-BTree<keytype, valuetype>::BTree()
+BTree<keytype, valuetype>::BTree():root(0),M(M_DEFAULT),MAX_KEY(M-1),MIN_KEY((M+1)/2-1),MIN_KEY_ROOT(1)
 {
-	root=0;
+}
+
+template<typename keytype, typename valuetype>
+BTree<keytype, valuetype>::BTree(int m):root(0),M(m),MAX_KEY(M-1),MIN_KEY((M+1)/2-1),MIN_KEY_ROOT(1)
+{
 }
 
 template<typename keytype, typename valuetype>
@@ -308,7 +336,8 @@ BTree<keytype, valuetype>::~BTree()
 template<typename keytype, typename valuetype>
 void BTree<keytype, valuetype>::Insert(const keytype& key, const valuetype& value)
 {
-	Insert_without_search(key, value);
+//	Insert_without_search(key, value);
+	Insert_with_search(key, value);
 }
 
 // 插入一条记录，若已存在则更新value，否则插入叶节点中
@@ -598,7 +627,9 @@ bool BTree<keytype, valuetype>::Search_for_Insert(const keytype& key, valuetype 
 	while(cur)
 	{		
 		// vector随机访问迭代器，O(logN)
-		typename std::vector<typename BTNode<keytype, valuetype>::RecordType>::iterator it=lower_bound(cur->records_.begin(), cur->records_.end(), record);// 返回大于等于key的迭代器
+		//typename std::vector<typename BTNode<keytype, valuetype>::RecordType>::iterator it=lower_bound(cur->records_.begin(), cur->records_.end(), record);// 返回大于等于key的迭代器
+		typename std::vector<typename BTNode<keytype, valuetype>::RecordType>::iterator it;
+		it=lower_bound(cur->records_.begin(), cur->records_.end(), record);// 返回大于等于key的迭代器
 		if(it!=cur->records_.end()  &&  it->key==key) // 
 		{
 			*value=&(it->value);
@@ -654,7 +685,8 @@ bool BTree<keytype, valuetype>::Search_for_Delete(const keytype& key, BTNode<key
 template<typename keytype, typename valuetype>
 void BTree<keytype, valuetype>::Delete(const keytype& key)
 {
-	Delete_without_search(key);
+	//Delete_without_search(key);
+	Delete_with_search(key);
 }
 
 template<typename keytype, typename valuetype>
@@ -955,7 +987,6 @@ void BTree<keytype, valuetype>::borrow(BTNode<keytype, valuetype>* parent, int i
 	else
 		borrow(parent, idx, siblingIdx, 0);
 }
-
 
 template<typename keytype, typename valuetype>
 void BTree<keytype, valuetype>::Print()
