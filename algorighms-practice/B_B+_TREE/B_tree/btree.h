@@ -74,13 +74,11 @@ public:
 	}
 	void InsertLeafRecordData(int idx, keytype key, valuetype value);
 	int FindIdx();
-	void addRecordWithRightChild(const RecordType& record, BTNode* rightChild);
-	void split(BTNode** rightN, RecordType *mid);
-	
+	void AddRecordWithRightChild(const RecordType& record, BTNode* rightChild);
+	void Split(BTNode** rightN, RecordType *mid);
 	int RecordNum(){
 		return static_cast<int>(records_.size());
-	}
-	
+	}	
 	std::string toString();
 	
 	friend class BTree<keytype, valuetype>;
@@ -118,7 +116,7 @@ BTNode<keytype, valuetype>::~BTNode()
 }
 
 template<typename keytype, typename valuetype>
-void BTNode<keytype, valuetype>::addRecordWithRightChild(const RecordType& record, BTNode* rightChild)
+void BTNode<keytype, valuetype>::AddRecordWithRightChild(const RecordType& record, BTNode* rightChild)
 {		
 	//typename std::vector<RecordType>::iterator it=upper_bound(records_.begin(), records_.end(), record);
 	//int idx=it-records_.begin();// 确定新纪录record应该在节点的records_中的位置
@@ -154,7 +152,7 @@ void BTNode<keytype, valuetype>::addRecordWithRightChild(const RecordType& recor
 // 右节点记录数right=RecordNum-left-1个，关键字数right+1个
 // 中间记录返回给父节点
 template<typename keytype, typename valuetype>
-void BTNode<keytype, valuetype>::split(BTNode** rightN, RecordType *mid)
+void BTNode<keytype, valuetype>::Split(BTNode** rightN, RecordType *mid)
 {
 	printf("结点分裂前：%s\n", toString().c_str());
 	if(parent_)
@@ -490,8 +488,8 @@ void BTree<keytype, valuetype>::Insert_without_search(const keytype& key, const 
 		printf("分裂节点: %s\n", p->toString().c_str());
 		
 		BTNode<keytype, valuetype> *parent=p->parent_;//p不为root，则parent不为0
-		p->split(&rightNode, &newrecord); // 分裂当前节点p，得到新的右半边节点和中间位置的记录
-		parent->addRecordWithRightChild(newrecord, rightNode);// 临时插入一个记录和处于该记录右边的儿子指针
+		p->Split(&rightNode, &newrecord); // 分裂当前节点p，得到新的右半边节点和中间位置的记录
+		parent->AddRecordWithRightChild(newrecord, rightNode);// 临时插入一个记录和处于该记录右边的儿子指针
 		rightNode->parent_=parent;
 		
 		p=parent;
@@ -499,7 +497,7 @@ void BTree<keytype, valuetype>::Insert_without_search(const keytype& key, const 
 	if(p==root  &&  p->RecordNum()>=M) // 分裂根节点
 	{
 		printf("分裂根节点: %s\n", p->toString().c_str());
-		p->split(&rightNode, &newrecord);
+		p->Split(&rightNode, &newrecord);
 		
 		BTNode<keytype, valuetype> *newroot=new BTNode<keytype, valuetype>();
 		newroot->parent_=0;
@@ -516,7 +514,7 @@ void BTree<keytype, valuetype>::Insert_without_search(const keytype& key, const 
 	{
 		printf("分裂节点: %s\n", p->toString().c_str());
 				
-		p->split(&rightNode, &newrecord); // 分裂当前节点p，得到新的右半边节点和中间位置的记录
+		p->Split(&rightNode, &newrecord); // 分裂当前节点p，得到新的右半边节点和中间位置的记录
 		
 		BTNode<keytype, valuetype> *parent=p->parent_;//p不为root，则parent不为0
         printf("parent=%p, p=%p, root=%p\n", parent, p, root);
@@ -524,7 +522,7 @@ void BTree<keytype, valuetype>::Insert_without_search(const keytype& key, const 
 		//if(p!=root)
 		{
 			printf("插入分裂节点和记录到父节点\n");
-			parent->addRecordWithRightChild(newrecord, rightNode);// 临时插入一个记录和处于该记录右边的儿子指针
+			parent->AddRecordWithRightChild(newrecord, rightNode);// 临时插入一个记录和处于该记录右边的儿子指针
 			rightNode->parent_=parent;
 		
 			p=parent;
@@ -592,12 +590,12 @@ void BTree<keytype, valuetype>::Insert_with_search(const keytype& key, const val
 	{
 		printf("分裂节点: %s\n", p->toString().c_str());
 				
-		p->split(&rightNode, &newrecord); // 分裂当前节点p，得到新的右半边节点和中间位置的记录
+		p->Split(&rightNode, &newrecord); // 分裂当前节点p，得到新的右半边节点和中间位置的记录
 		
 		BTNode<keytype, valuetype> *parent=p->parent_;//p不为root，则parent不为0
 		if(parent!=NULL)
 		{
-			parent->addRecordWithRightChild(newrecord, rightNode);// 临时插入一个记录和处于该记录右边的儿子指针
+			parent->AddRecordWithRightChild(newrecord, rightNode);// 临时插入一个记录和处于该记录右边的儿子指针
 			rightNode->parent_=parent;
 		
 			p=parent;

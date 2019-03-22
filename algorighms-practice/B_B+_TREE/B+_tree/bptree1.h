@@ -1,4 +1,5 @@
-// @author: norah
+#ifndef BPLUS_TREE_TWO_NODE_H_
+#define BPLUS_TREE_TWO_NODE_H_
 
 // B+树实现
 static int M=5;//M叉树
@@ -41,3 +42,5 @@ private:
 	BTNode* root_;
 	
 };
+
+#endif
