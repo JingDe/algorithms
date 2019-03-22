@@ -86,7 +86,7 @@ public:
 	friend class BTree<keytype, valuetype>;
 };
 
-template<typename keytype, typename valuetype>
+/* template<typename keytype, typename valuetype>
 bool operator<(const typename BTNode<keytype, valuetype>::RecordType& lhs, const typename BTNode<keytype, valuetype>::RecordType& rhs)
 {
 	return (lhs.key<rhs.key);
@@ -96,7 +96,7 @@ template<typename keytype, typename valuetype>
 bool operator==(const typename BTNode<keytype, valuetype>::RecordType& lhs, const typename BTNode<keytype, valuetype>::RecordType& rhs) // ??
 {
 	return (lhs.key==rhs.key);
-}
+} */
 
 template<typename keytype, typename valuetype>
 BTNode<keytype, valuetype>::BTNode()
@@ -265,7 +265,7 @@ public:
 	void Delete(const keytype& key);
 	
 	void Print();
-	
+	void Print2();
 	
 
 private:
@@ -276,14 +276,21 @@ private:
 	void Delete_with_search(const keytype& key);
 	void Delete_without_search(const keytype& key);
 	bool Search_for_Delete(const keytype& key, BTNode<keytype, valuetype>** node, int *idx);
+	
 	// 寻找parent节点的idx子树的有富余记录的兄弟节点的索引siblingIdx
 	bool findRichSibling(BTNode<keytype, valuetype> *parent, int idx, int *siblingIdx);
 	
 	void merge(BTNode<keytype, valuetype> * parent, int left, int right);
 	void borrow(BTNode<keytype, valuetype>* parent, int leftIdx, int rightIdx, bool left);
 	void borrow(BTNode<keytype, valuetype>* parent, int idx, int siblingIdx);
+	
 	void dfs(BTNode<keytype, valuetype>* cur, int level);
 
+	void free1();
+	void free2();
+	void free3();
+	void dfs_free(BTNode<keytype, valuetype> *);
+	
 	BTNode<keytype, valuetype> *root;
 	
 	const int M; // M叉B树，所有节点包含x个记录和x+1个子树指针，每个记录包含一个关键字和一个指向对应数据的指针
@@ -306,8 +313,10 @@ BTree<keytype, valuetype>::BTree(int m):root(0),M(m),MAX_KEY(M-1),MIN_KEY((M+1)/
 template<typename keytype, typename valuetype>
 BTree<keytype, valuetype>::~BTree()
 {
-	//???z 
-	std::stack<BTNode<keytype, valuetype>*> S;
+	//free1();
+	//free2();
+	free3();
+/* 	std::stack<BTNode<keytype, valuetype>*> S;
 	BTNode<keytype, valuetype>* cur=0;
 	if(root==0)
 		return;
@@ -330,6 +339,75 @@ BTree<keytype, valuetype>::~BTree()
 			}
 			cur->children_.clear();
 		}
+	} */
+}
+
+// BFS 遍历释放
+template<typename keytype, typename valuetype>
+void BTree<keytype, valuetype>::free1()
+{
+	std::deque<BTNode<keytype, valuetype>*> Q;
+	BTNode<keytype, valuetype>* cur=0;
+	if(root==0)
+		return;
+	Q.push_back(root);
+	while(!Q.empty())
+	{
+		cur=Q.front();
+		Q.pop_front();
+		for(typename std::vector<BTNode<keytype, valuetype>*>::iterator it=cur->children_.begin(); 
+			it!=cur->children_.end(); it++)
+		{
+			BTNode<keytype, valuetype>* child=*it;
+			Q.push_back(child);
+		}
+		cur->children_.clear();
+		delete cur;
+	}
+}
+
+// DFS 递归方式释放
+template<typename keytype, typename valuetype>
+void BTree<keytype, valuetype>::free2()
+{
+	dfs_free(root);
+}
+
+template<typename keytype, typename valuetype>
+void BTree<keytype, valuetype>::dfs_free(BTNode<keytype, valuetype>* node)
+{
+	if(node==NULL)
+		return;
+	BTNode<keytype, valuetype>* cur=node;
+	for(typename std::vector<BTNode<keytype, valuetype>*>::iterator it=cur->children_.begin(); 
+			it!=cur->children_.end(); it++)
+	{
+		dfs_free(*it);
+	}
+	delete cur;
+}
+
+// DFS 非递归方式释放
+template<typename keytype, typename valuetype>
+void BTree<keytype, valuetype>::free3()
+{
+	std::stack<BTNode<keytype, valuetype>*> S;
+	BTNode<keytype, valuetype>* cur=0;
+	if(root==0)
+		return;
+	S.push(root);
+	while(!S.empty())
+	{
+		cur=S.top();
+		S.pop();
+		for(typename std::vector<BTNode<keytype, valuetype>*>::iterator it=cur->children_.begin(); 
+			it!=cur->children_.end(); it++)
+		{
+			BTNode<keytype, valuetype>* child=*it;
+			S.push(child);
+		}
+		cur->children_.clear();
+		delete cur;
 	}
 }
 
@@ -1008,6 +1086,36 @@ void BTree<keytype, valuetype>::dfs(BTNode<keytype, valuetype>* cur, int level)
 		for(typename std::vector<BTNode<keytype, valuetype>*>::iterator it=cur->children_.begin(); it!=cur->children_.end(); it++)
 		{
 			dfs(*it, level+1);
+		}
+	}
+}
+
+template<typename keytype, typename valuetype>
+void BTree<keytype, valuetype>::Print2()
+{
+	printf("Print2 打印B树：\n");
+	if(root==NULL)
+	{
+		printf("empty tree\n");
+		return;
+	}
+	
+	BTNode<keytype, valuetype>* cur= root;
+	int level=0;
+	//std::stack<BTNode<keytype, valuetype>*> s;
+	std::stack<std::pair<BTNode<keytype, valuetype>*, int> > s; // BTNode*, level
+	
+	s.push(std::make_pair<BTNode<keytype, valuetype>*, int>(cur, level));
+	while(s.empty()==0)
+	{
+		std::pair<BTNode<keytype, valuetype>*, int> elem=s.top();
+		s.pop();
+		cur=elem.first;
+		printf("%*c%s\n", elem.second, '-', cur->toString().c_str());
+		
+		for(typename std::vector<BTNode<keytype, valuetype>*>::iterator it=cur->children_.begin(); it!=cur->children_.end(); it++)
+		{
+			s.push(std::make_pair<BTNode<keytype, valuetype>*, int>(*it, elem.second+4));
 		}
 	}
 }

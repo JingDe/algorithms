@@ -53,6 +53,7 @@ void test2()
 	BTree<int, int> t1(3);
 	t1.Insert(1, 1);
 	t1.Print();
+	t1.Print2();
 	
 	t1.Insert(1, 11);
 	t1.Print();
@@ -77,6 +78,7 @@ void test2()
 	t1.Print();
 	t1.Insert(10, 10);
 	t1.Print();
+	t1.Print2();
 }
 
 int main()
