@@ -4,6 +4,8 @@
 #include<vector>
 #include<string>
 #include<sstream>
+#include<cassert>
+#include<algorithm>
 
 // B+树实现
 // 根结点：或者是叶节点，或者是儿子数在2和M之间
@@ -16,16 +18,41 @@ static const int L_DEFAULT=32;
 template<typename keytype, typename valuetype>
 class BPlusTree;
 
-
 template<typename keytype, typename valuetype>
 class BPTNode{
 public:
 	BPTNode();
 	~BPTNode();
 	
-	void InsertRecord(const keytype& key, const valuetype& value);
-	void PushRecord(const keytype& key, const valuetype& value);
+	void LeafInsertRecord(int idx, const keytype& key, const valuetype& value);
+	void LeafPushRecord(const keytype& key, const valuetype& value); // Insert at end()
+	
+	void IndexInsert(const keytype& key, BPTNode* left, BPTNode* right);
+	
+	void LeafSplit(BPTNode<keytype, valuetype>** rightSibling);
+	void IndexSplit(BPTNode<keytype, valuetype> **rightSibling, keytype *middleKey);
+	
 	std::string toString();
+	
+	bool isLeaf(){
+		return isLeaf_;
+	}
+	bool isRoot(){
+		return isRoot_;
+	}
+	
+	void node_assert()
+	{
+		assert(
+	(isLeaf_==true  &&  keys_.size()==values_.size()  &&  keys_.size()!=0  &&  children_.size()==0)
+|| 	(isLeaf_==false  &&  values_.size()==0  &&  keys_.size()!=0  &&  keys_.size()+1==children_.size())	
+
+|| 	(isRoot_==true  &&  parent_==0)
+|| 	(isRoot_==true  &&  isLeaf_==true  &&  children_.size()==0  &&  keys_.size()==values_.size()  &&  keys_.size()!=0)
+||  (isRoot_==true  &&  isLeaf_==false  &&  children_.size()!=0  &&  values_.size()==0  &&  keys_.size()!=0  &&  keys_.size()+1==children_.size())
+
+		);
+	}
 	
 private:
 	bool isLeaf_;
@@ -44,14 +71,6 @@ private:
 	
 	BPTNode *next_; // 只对叶节点有效，下一个叶节点
 	
-	// assert(
-	// 		(isLeaf_==true  &&  keys_.size()==values_.size()  &&  keys_.size()!=0  &&  children_.size()==0)
-	// || 	(isLeaf_==false  &&  values_.size()==0  &&  keys_.size()!=0  &&  children_.size()!=0)
-	
-	// || 	(isRoot_==true  &&  parent_==0)
-	// || 	(isRoot_==true  && isLeaf_==true  &&  parent_==0  &&  children_.size()==0  &&  keys_.size()==values_.size()  &&  keys_.size()!=0)
-	// )
-	
 	friend class BPlusTree<keytype, valuetype>;
 };
 
@@ -59,20 +78,54 @@ template<typename keytype, typename valuetype>
 BPTNode<keytype, valuetype>::BPTNode():isLeaf_(false),isRoot_(false),parent_(0),next_(0)
 {}
 
-
 template<typename keytype, typename valuetype>
-void BPTNode<keytype, valuetype>::InsertRecord(const keytype& key, const valuetype& value)
-{
-	
-}
-
-template<typename keytype, typename valuetype>
-void BPTNode<keytype, valuetype>::PushRecord(const keytype& key, const valuetype& value)
+void BPTNode<keytype, valuetype>::LeafPushRecord(const keytype& key, const valuetype& value)
 {
 	keys_.push_back(key);
 	values_.push_back(value);
 }
 
+template<typename keytype, typename valuetype>
+void BPTNode<keytype, valuetype>::LeafInsertRecord(int idx, const keytype& key, const valuetype& value)
+{
+	keys_.insert(keys_.begin()+idx, key);
+	values_.insert(values_.begin()+idx, value);
+}
+
+template<typename keytype, typename valuetype>
+void BPTNode<keytype, valuetype>::IndexInsert(const keytype& key, BPTNode* left, BPTNode* right)
+{
+	typename std::vector<keytype>::iterator it=std::lower_bound(keys_.begin(), keys_.end(), key);
+	int idx=it-keys_.begin();
+	keys_.insert(it, key);
+	children_.insert(children_.begin()+idx, left);
+	children_.insert(children_.begin()+idx+1, right);
+}
+
+// 叶节点分裂
+template<typename keytype, typename valuetype>
+void BPTNode<keytype, valuetype>::LeafSplit(BPTNode<keytype, valuetype>** rightSibling)
+{
+	int left=(keys_.size()-1)/2; // 0-left-1  与 left~keys_.size()-1
+	(*rightSibling)->parent_=parent_;
+	(*rightSibling)->isLeaf_=isLeaf_;
+	(*rightSibling)->keys_.assign(keys_.begin()+left, keys_.end());
+	(*rightSibling)->values_.assign(values_.begin()+left, values_.end());
+	(*rightSibling)->children_.clear();
+	
+	keys_.resize(left);
+	values_.resize(left);
+	
+	(*rightSibling)->next_=next_;
+	next_=*rightSibling;
+}
+
+// 索引节点分裂
+template<typename keytype, typename valuetype>
+void BPTNode<keytype, valuetype>::IndexSplit(BPTNode<keytype, valuetype>** rightSibling, keytype *middleKey)
+{
+	
+}
 
 template<typename keytype, typename valuetype>
 std::string BPTNode<keytype, valuetype>::toString()
@@ -117,7 +170,7 @@ public:
 	void Print();
 	
 private:
-
+	bool Search_for_Insert(const keytype& key, BPTNode<keytype, valuetype>** leaf, int *idx);
 	bool insert_empty_tree(const keytype& key, const valuetype& value);
 	void dfs(BPTNode<keytype, valuetype>* cur, int level);
 
@@ -157,22 +210,21 @@ BPlusTree<keytype, valuetype>::~BPlusTree()
 	
 }
 
+// 左子树关键字<当前关键字<=右子树关键字
 template<typename keytype, typename valuetype>
 bool BPlusTree<keytype, valuetype>::Search(const keytype& key, valuetype *value)
 {
 	if(root_==0)
 		return false;
 	BPTNode<keytype, valuetype> * cur=root_;
-	typename BPTNode<keytype, valuetype>::RecordType record(key, valuetype());
+	typename std::vector<keytype>::iterator it;
 	
-	typename std::vector<typename BPTNode<keytype, valuetype>::RecordType>::iterator it;
 	while(cur)
 	{
-		//typename std::vector<typename BPTNode<keytype, valuetype>::RecordType>::iterator it=lower_bound(cur->records_.begin(), cur->records_.end(), record);
-		
-		for(it=cur->records_.begin(); it!=cur->records_.end(); it++)
+		// TODO	
+		for(it=cur->keys_.begin(); it!=cur->keys_.end(); it++)
 		{
-			if(it->key>=record.key)
+			if(*it>key) 
 				break;
 		}
 		if(cur->isLeaf_)
@@ -180,12 +232,12 @@ bool BPlusTree<keytype, valuetype>::Search(const keytype& key, valuetype *value)
 			break;
 		}
 		
-		int idx=it-cur->records_.begin();
+		int idx=it-cur->keys_.begin();
 		cur=cur->children_[idx];
 	}
-	if(it!=cur->records_.end()  &&  it->key==record.key)
+	if(cur!=NULL  &&  cur->isLeaf_  &&  it!=cur->keys_.end()  &&  *it==key)
 	{
-		*value=cur->values_[it-cur->records_.begin()];
+		*value=cur->values_[it-cur->keys_.begin()];
 		return true;
 	}
 	return false;
@@ -197,6 +249,106 @@ bool BPlusTree<keytype, valuetype>::Insert(const keytype& key, const valuetype& 
 	if(root_==NULL)
 	{
 		insert_empty_tree(key, value);
+		return true;
+	}
+	
+	BPTNode<keytype, valuetype>* leaf=NULL;
+	int idx=-1;
+	bool exists=Search_for_Insert(key, &leaf, &idx);
+	if(exists)
+	{
+		leaf->values_[idx]=value;
+		return true;
+	}
+	
+	leaf->LeafInsertRecord(idx, key, value);
+	
+	if(leaf->keys_.size()<=L)
+		return true;
+	BPTNode<keytype, valuetype>* rightSibling=new BPTNode<keytype, valuetype>();
+	leaf->LeafSplit(&rightSibling);
+	
+	if(leaf->isRoot_) // root_==leaf  head_==leaf
+	{
+		BPTNode<keytype, valuetype>* newRoot=new BPTNode<keytype, valuetype>();
+		newRoot->keys_.push_back(rightSibling->keys_[0]);
+		newRoot->children_.push_back(leaf);
+		newRoot->children_.push_back(rightSibling);
+		head_=newRoot;
+		root_=newRoot;
+		
+		leaf->parent_=root_; rightSibling->parent_=root_;
+		leaf->isRoot_=false; rightSibling->isRoot_=false;
+		return true;
+	}
+	
+	assert(leaf->parent_->isLeaf_==false);
+	leaf->parent_->IndexInsert(rightSibling->keys_[0], leaf, rightSibling);
+	
+	BPTNode<keytype, valuetype>* cur=leaf->parent_;
+	while(true)
+	{
+		if(cur->keys_.size()<M)
+			return true;
+		
+		BPTNode<keytype, valuetype>* rightSibling=new BPTNode<keytype, valuetype>();
+		keytype middleKey;
+		cur->IndexSplit(&rightSibling, &middleKey);
+		if(cur->isRoot_)
+		{
+			BPTNode<keytype, valuetype>* newRoot=new BPTNode<keytype, valuetype>();
+			newRoot->keys_.push_back(middleKey);
+			newRoot->children_.push_back(leaf);
+			newRoot->children_.push_back(rightSibling);
+			head_=newRoot;
+			root_=newRoot;
+			
+			cur->parent_=root_; rightSibling->parent_=root_;
+			cur->isRoot_=false; rightSibling->isRoot_=false;
+			return true;
+		}
+		cur->parent_->IndexInsert(middleKey, cur, rightSibling);
+		cur=cur->parent_;
+	}
+	return false;
+}
+
+// 在B+树中查询key关键字，直到叶子节点通过leaf返回，查找成功返回true，idx返回key的位置
+// 查找失败，返回false，idx返回key应该插入的位置
+template<typename keytype, typename valuetype>
+bool BPlusTree<keytype, valuetype>::Search_for_Insert(const keytype& key, BPTNode<keytype, valuetype>** leaf, int *idx)
+{
+	if(root_==0)
+		return false;
+	BPTNode<keytype, valuetype> * cur=root_;
+	typename std::vector<keytype>::iterator it;
+	
+	while(cur)
+	{
+		for(it=cur->keys_.begin(); it!=cur->keys_.end(); it++)
+		{
+			if(*it>key) 
+				break;
+		}
+		if(cur->isLeaf_)
+		{
+			break;
+		}
+		
+		int idx=it-cur->keys_.begin();
+		cur=cur->children_[idx];
+	}
+	assert(cur!=NULL  &&  cur->isLeaf_);
+	
+	*leaf=cur;
+	*idx=it-cur->keys_.begin();
+	if(cur!=NULL  &&  cur->isLeaf_  &&  it!=cur->keys_.end()  &&  *it==key)
+	{
+		return true;
+	}
+	else
+	{
+		return false;
 	}
 }
 
@@ -206,8 +358,14 @@ bool BPlusTree<keytype, valuetype>::insert_empty_tree(const keytype& key, const 
 	assert(root_==NULL  &&  head_==NULL);
 	root_=new BPTNode<keytype, valuetype>();
 	head_=root_;
-	root_->PushRecord(key, value);
 	
+	root_->isRoot_=true;
+	root_->isLeaf_=true;
+	root_->parent_=NULL;
+	root_->LeafPushRecord(key, value);
+	root_->children_.clear();
+	root_->next_=NULL;
+	return true;
 }
 
 
