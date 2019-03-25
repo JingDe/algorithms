@@ -35,12 +35,20 @@ void test_insert()
 	bpt1.Print();
 	bpt1.Insert(6, 6);
 	bpt1.Print();
+	
+	bpt1.Insert(7, 7);
+	bpt1.Print();
+	bpt1.Insert(8, 8);
+	bpt1.Print();
+	bpt1.Insert(9, 9);
+	bpt1.Print();
+	bpt1.Insert(10, 10);
+	bpt1.Print();
 }
 
 
 int main()
 {
-	test1();
 	
 	test_insert();
 	

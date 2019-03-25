@@ -2,6 +2,7 @@
 #define BPLUS_TREE_H_
 
 #include<vector>
+#include<deque>
 #include<string>
 #include<sstream>
 #include<cassert>
@@ -79,6 +80,14 @@ BPTNode<keytype, valuetype>::BPTNode():isLeaf_(false),isRoot_(false),parent_(0),
 {}
 
 template<typename keytype, typename valuetype>
+BPTNode<keytype, valuetype>::~BPTNode()
+{
+	keys_.clear();
+	values_.clear();
+	children_.clear();
+}
+
+template<typename keytype, typename valuetype>
 void BPTNode<keytype, valuetype>::LeafPushRecord(const keytype& key, const valuetype& value)
 {
 	keys_.push_back(key);
@@ -98,17 +107,21 @@ void BPTNode<keytype, valuetype>::IndexInsert(const keytype& key, BPTNode* left,
 	typename std::vector<keytype>::iterator it=std::lower_bound(keys_.begin(), keys_.end(), key);
 	int idx=it-keys_.begin();
 	keys_.insert(it, key);
-	children_.insert(children_.begin()+idx, left);
 	children_.insert(children_.begin()+idx+1, right);
 }
 
+// 计算机整数相除，只保留整数位
+// 6 3+3
+// 5 2+3
 // 叶节点分裂
 template<typename keytype, typename valuetype>
 void BPTNode<keytype, valuetype>::LeafSplit(BPTNode<keytype, valuetype>** rightSibling)
 {
-	int left=(keys_.size()-1)/2; // 0-left-1  与 left~keys_.size()-1
+	printf("before LeafSplit %s\n", toString().c_str());
+	int left=(keys_.size())/2; // 0-left-1  与 left~keys_.size()-1
 	(*rightSibling)->parent_=parent_;
 	(*rightSibling)->isLeaf_=isLeaf_;
+	(*rightSibling)->isRoot_=isRoot_;
 	(*rightSibling)->keys_.assign(keys_.begin()+left, keys_.end());
 	(*rightSibling)->values_.assign(values_.begin()+left, values_.end());
 	(*rightSibling)->children_.clear();
@@ -118,13 +131,35 @@ void BPTNode<keytype, valuetype>::LeafSplit(BPTNode<keytype, valuetype>** rightS
 	
 	(*rightSibling)->next_=next_;
 	next_=*rightSibling;
+	
+	printf("LeafSplit %s, %s\n", toString().c_str(), (*rightSibling)->toString().c_str());
 }
 
+// 6 2+1+3 3+3
+// 5 2+1+2 3+2
 // 索引节点分裂
 template<typename keytype, typename valuetype>
 void BPTNode<keytype, valuetype>::IndexSplit(BPTNode<keytype, valuetype>** rightSibling, keytype *middleKey)
 {
+	printf("before IndexSplit %s\n", toString().c_str());
+	int left=(keys_.size()+1)/2-1; // 0-left-1  与 left  与 left+1~keys_.size()-1
+	(*rightSibling)->parent_=parent_;
+	(*rightSibling)->isLeaf_=isLeaf_;
+	(*rightSibling)->isRoot_=isRoot_;
+	(*rightSibling)->keys_.assign(keys_.begin()+left+1, keys_.end());
+	(*rightSibling)->values_.assign(values_.begin()+left+1, values_.end());
+	(*rightSibling)->children_.assign(children_.begin()+left+1, children_.end());
 	
+	keys_.resize(left);
+	values_.resize(left);
+	children_.resize(left+1);
+	
+	*middleKey=keys_[left];
+	
+	(*rightSibling)->next_=next_;
+	next_=*rightSibling;
+	
+	printf("IndexSplit %s, %s, %d\n", toString().c_str(), (*rightSibling)->toString().c_str(), middleKey);
 }
 
 template<typename keytype, typename valuetype>
@@ -168,11 +203,13 @@ public:
 	bool Insert(const keytype& key, const valuetype& value);
 	bool Delete(const keytype& key);
 	void Print();
+	void PrintRecord();
 	
 private:
 	bool Search_for_Insert(const keytype& key, BPTNode<keytype, valuetype>** leaf, int *idx);
 	bool insert_empty_tree(const keytype& key, const valuetype& value);
 	void dfs(BPTNode<keytype, valuetype>* cur, int level);
+	void free1();
 
 	BPTNode<keytype, valuetype>* root_; // 根节点
 	BPTNode<keytype, valuetype>* head_; // 叶节点链表表头节点
@@ -207,7 +244,30 @@ BPlusTree<keytype, valuetype>::BPlusTree(int m, int l):root_(0),head_(0),
 template<typename keytype, typename valuetype>
 BPlusTree<keytype, valuetype>::~BPlusTree()
 {
-	
+	free1();
+}
+
+template<typename keytype, typename valuetype>
+void BPlusTree<keytype, valuetype>::free1()
+{
+	std::deque<BPTNode<keytype, valuetype>*> Q;
+	BPTNode<keytype, valuetype>* cur=0;
+	if(root_==0)
+		return;
+	Q.push_back(root_);
+	while(!Q.empty())
+	{
+		cur=Q.front();
+		Q.pop_front();
+		for(typename std::vector<BPTNode<keytype, valuetype>*>::iterator it=cur->children_.begin(); 
+			it!=cur->children_.end(); it++)
+		{
+			BPTNode<keytype, valuetype>* child=*it;
+			Q.push_back(child);
+		}
+		cur->children_.clear();
+		delete cur;
+	}
 }
 
 // 左子树关键字<当前关键字<=右子树关键字
@@ -246,8 +306,10 @@ bool BPlusTree<keytype, valuetype>::Search(const keytype& key, valuetype *value)
 template<typename keytype, typename valuetype>
 bool BPlusTree<keytype, valuetype>::Insert(const keytype& key, const valuetype& value)
 {
+	printf("Call Insert %d %d\n", key, value);
 	if(root_==NULL)
 	{
+		printf("插入空树\n");
 		insert_empty_tree(key, value);
 		return true;
 	}
@@ -257,14 +319,17 @@ bool BPlusTree<keytype, valuetype>::Insert(const keytype& key, const valuetype& 
 	bool exists=Search_for_Insert(key, &leaf, &idx);
 	if(exists)
 	{
+		printf("插入，更新value\n");
 		leaf->values_[idx]=value;
 		return true;
 	}
 	
+	printf("插入叶节点,%s\n", leaf->toString().c_str());
 	leaf->LeafInsertRecord(idx, key, value);
 	
 	if(leaf->keys_.size()<=L)
 		return true;
+	printf("插入，叶节点数%d, 超过%d\n", leaf->keys_.size(), L);
 	BPTNode<keytype, valuetype>* rightSibling=new BPTNode<keytype, valuetype>();
 	leaf->LeafSplit(&rightSibling);
 	
@@ -274,7 +339,6 @@ bool BPlusTree<keytype, valuetype>::Insert(const keytype& key, const valuetype& 
 		newRoot->keys_.push_back(rightSibling->keys_[0]);
 		newRoot->children_.push_back(leaf);
 		newRoot->children_.push_back(rightSibling);
-		head_=newRoot;
 		root_=newRoot;
 		
 		leaf->parent_=root_; rightSibling->parent_=root_;
@@ -300,7 +364,6 @@ bool BPlusTree<keytype, valuetype>::Insert(const keytype& key, const valuetype& 
 			newRoot->keys_.push_back(middleKey);
 			newRoot->children_.push_back(leaf);
 			newRoot->children_.push_back(rightSibling);
-			head_=newRoot;
 			root_=newRoot;
 			
 			cur->parent_=root_; rightSibling->parent_=root_;
@@ -376,6 +439,8 @@ void BPlusTree<keytype, valuetype>::Print()
 	BPTNode<keytype, valuetype>* cur= root_;
 	int level=0;
 	dfs(cur, level);
+	printf("\t记录链表：");
+	PrintRecord();
 }
 
 template<typename keytype, typename valuetype>
@@ -384,12 +449,23 @@ void BPlusTree<keytype, valuetype>::dfs(BPTNode<keytype, valuetype>* cur, int le
 	if(cur)
 	{
 		printf("%*c%s\n", level*4, '-', cur->toString().c_str());
-		
+
 		for(typename std::vector<BPTNode<keytype, valuetype>*>::iterator it=cur->children_.begin(); it!=cur->children_.end(); it++)
 		{
 			dfs(*it, level+1);
 		}
 	}
+}
+
+
+template<typename keytype, typename valuetype>
+void BPlusTree<keytype, valuetype>::PrintRecord()
+{
+	for(BPTNode<keytype, valuetype> *node=head_; node!=NULL; node=node->next_)
+	{
+		printf("%s ", node->toString().c_str());
+	}
+	printf("\n");
 }
 
 #endif
