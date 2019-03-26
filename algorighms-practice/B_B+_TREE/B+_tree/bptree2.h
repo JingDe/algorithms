@@ -141,25 +141,21 @@ void BPTNode<keytype, valuetype>::LeafSplit(BPTNode<keytype, valuetype>** rightS
 template<typename keytype, typename valuetype>
 void BPTNode<keytype, valuetype>::IndexSplit(BPTNode<keytype, valuetype>** rightSibling, keytype *middleKey)
 {
-	printf("before IndexSplit %s\n", toString().c_str());
+	assert(values_.size()==0);
+	printf("将分裂索引节点 %s, keys.size=%d, values.size=%d, children.size=%d\n", toString().c_str(), keys_.size(), values_.size(), children_.size());
 	int left=(keys_.size()+1)/2-1; // 0-left-1  与 left  与 left+1~keys_.size()-1
 	(*rightSibling)->parent_=parent_;
 	(*rightSibling)->isLeaf_=isLeaf_;
 	(*rightSibling)->isRoot_=isRoot_;
 	(*rightSibling)->keys_.assign(keys_.begin()+left+1, keys_.end());
-	(*rightSibling)->values_.assign(values_.begin()+left+1, values_.end());
 	(*rightSibling)->children_.assign(children_.begin()+left+1, children_.end());
 	
 	keys_.resize(left);
-	values_.resize(left);
 	children_.resize(left+1);
 	
 	*middleKey=keys_[left];
 	
-	(*rightSibling)->next_=next_;
-	next_=*rightSibling;
-	
-	printf("IndexSplit %s, %s, %d\n", toString().c_str(), (*rightSibling)->toString().c_str(), middleKey);
+	printf("索引节点分裂得到 %s, %s, %d\n", toString().c_str(), (*rightSibling)->toString().c_str(), *middleKey);
 }
 
 template<typename keytype, typename valuetype>
@@ -336,6 +332,7 @@ bool BPlusTree<keytype, valuetype>::Insert(const keytype& key, const valuetype& 
 	if(leaf->isRoot_) // root_==leaf  head_==leaf
 	{
 		BPTNode<keytype, valuetype>* newRoot=new BPTNode<keytype, valuetype>();
+		newRoot->isRoot_=true;
 		newRoot->keys_.push_back(rightSibling->keys_[0]);
 		newRoot->children_.push_back(leaf);
 		newRoot->children_.push_back(rightSibling);
@@ -358,11 +355,16 @@ bool BPlusTree<keytype, valuetype>::Insert(const keytype& key, const valuetype& 
 		BPTNode<keytype, valuetype>* rightSibling=new BPTNode<keytype, valuetype>();
 		keytype middleKey;
 		cur->IndexSplit(&rightSibling, &middleKey);
-		if(cur->isRoot_)
+		printf("cur->isRoot=%d\n", cur->isRoot_);
+
+		//if(cur->isRoot_)
+		if(cur==root_)
 		{
+			printf("分裂到根节点, %s\n", cur->toString().c_str());
 			BPTNode<keytype, valuetype>* newRoot=new BPTNode<keytype, valuetype>();
+			newRoot->isRoot_=true;
 			newRoot->keys_.push_back(middleKey);
-			newRoot->children_.push_back(leaf);
+			newRoot->children_.push_back(cur);
 			newRoot->children_.push_back(rightSibling);
 			root_=newRoot;
 			
@@ -370,6 +372,7 @@ bool BPlusTree<keytype, valuetype>::Insert(const keytype& key, const valuetype& 
 			cur->isRoot_=false; rightSibling->isRoot_=false;
 			return true;
 		}
+		printf("将分裂索引节点(key %d, rightSibling %s), 插入到父节点%s\n", middleKey, rightSibling->toString().c_str(), cur->parent_->toString().c_str());
 		cur->parent_->IndexInsert(middleKey, cur, rightSibling);
 		cur=cur->parent_;
 	}
