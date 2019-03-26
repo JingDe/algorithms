@@ -924,7 +924,7 @@ void BTree<keytype, valuetype>::Delete_with_search(const keytype& key)
 	{
 		printf("删除节点不存在");
 		return;
-	}	
+	}
 	
 	BTNode<keytype, valuetype> *cur=NULL;
 	BTNode<keytype, valuetype> *child;
