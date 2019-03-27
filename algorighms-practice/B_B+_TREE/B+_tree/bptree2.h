@@ -387,7 +387,9 @@ public:
 	BPlusTree(int m, int l);
 	~BPlusTree();
 	
-	bool Search(const keytype& key, valuetype *value);
+	bool Search(const keytype& key, BPTNode<keytype, valuetype>** leaf, int *idx);
+	bool Get(const keytype& key, valuetype *value);
+	bool RangeSearch(const keytype& min, const keytype& max, std::vector<valuetype> &values);
 	bool Insert(const keytype& key, const valuetype& value);
 	bool Delete(const keytype& key);
 	void Print();
@@ -465,9 +467,22 @@ void BPlusTree<keytype, valuetype>::free1()
 	}
 }
 
-// 左子树关键字<当前关键字<=右子树关键字
+
 template<typename keytype, typename valuetype>
-bool BPlusTree<keytype, valuetype>::Search(const keytype& key, valuetype *value)
+bool BPlusTree<keytype, valuetype>::Get(const keytype& key, valuetype *value)
+{
+	BPTNode<keytype, valuetype> *leaf=NULL;
+	int idx=-1;
+	if(Search(key, &leaf, &idx))
+	{
+		*value=leaf->values_[idx];
+		return true;
+	}
+	return false;
+}
+
+template<typename keytype, typename valuetype>
+bool BPlusTree<keytype, valuetype>::Search(const keytype& key, BPTNode<keytype, valuetype>** leaf, int *idx)
 {
 	if(root_==0)
 		return false;
@@ -479,7 +494,8 @@ bool BPlusTree<keytype, valuetype>::Search(const keytype& key, valuetype *value)
 		// TODO	
 		for(it=cur->keys_.begin(); it!=cur->keys_.end(); it++)
 		{
-			if(*it>key) 
+			// 当左子树关键字<当前关键字<=右子树关键字，查找后一个子树
+			if((cur->isLeaf_==false  &&  *it>key)  ||  (cur->isLeaf_  &&  *it>=key)) 
 				break;
 		}
 		if(cur->isLeaf_)
@@ -487,15 +503,22 @@ bool BPlusTree<keytype, valuetype>::Search(const keytype& key, valuetype *value)
 			break;
 		}
 		
-		int idx=it-cur->keys_.begin();
-		cur=cur->children_[idx];
+		int child=it-cur->keys_.begin(); // it可能是end()
+		cur=cur->children_[child];
 	}
+	assert(cur!=NULL  &&  cur->isLeaf_);
 	if(cur!=NULL  &&  cur->isLeaf_  &&  it!=cur->keys_.end()  &&  *it==key)
 	{
-		*value=cur->values_[it-cur->keys_.begin()];
+		*idx=it-cur->keys_.begin();
+		*leaf=cur;
 		return true;
 	}
-	return false;
+	else // *it>key
+	{
+		*idx=it-cur->keys_.begin(); // 返回第一个大于key的记录位置：leaf->keys_[idx]
+		*leaf=cur;
+		return false;
+	}
 }
 
 template<typename keytype, typename valuetype>
@@ -834,6 +857,28 @@ void BPlusTree<keytype, valuetype>::PrintRecord()
 		printf("%s, ", node->toString().c_str());
 	}
 	printf("\n");
+}
+
+template<typename keytype, typename valuetype>
+bool BPlusTree<keytype, valuetype>::RangeSearch(const keytype& min, const keytype& max, std::vector<valuetype> &values)
+{
+	if(min>max)
+		return false;
+	values.clear();
+	BPTNode<keytype, valuetype> *start=NULL;
+	int idx=-1;
+	int ret=Search(min, &start, &idx);
+	values.assign(start->values_.begin()+idx, start->values_.end());
+	for(BPTNode<keytype, valuetype> *node=start->next_; node!=NULL; node=node->next_)
+	{
+		for(typename std::vector<keytype>::iterator it=node->keys_.begin(); it!=node->keys_.end(); it++)// TODO 
+		{
+			if(*it>max)
+				return true;
+			values.push_back(node->values_[it-node->keys_.begin()]);
+		}
+	}
+	return true;
 }
 
 #endif
