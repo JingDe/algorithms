@@ -9,6 +9,7 @@
 #include<stack> 
 #include<string>
 #include<sstream>
+#include<cmath>
 
 // static const int M=5; // M叉B树，所有节点包含x个记录和x+1个子树指针，每个记录包含一个关键字和一个指向对应数据的指针
 // static const int MAX_KEY=M-1; // 每个节点最多M-1个关键字，最多M个子树
@@ -299,12 +300,12 @@ private:
 };
 
 template<typename keytype, typename valuetype>
-BTree<keytype, valuetype>::BTree():root(0),M(M_DEFAULT),MAX_KEY(M-1),MIN_KEY((M+1)/2-1),MIN_KEY_ROOT(1)
+BTree<keytype, valuetype>::BTree():root(0),M(M_DEFAULT),MAX_KEY(M-1),MIN_KEY(ceil(M/2.0)-1),MIN_KEY_ROOT(1)
 {
 }
 
 template<typename keytype, typename valuetype>
-BTree<keytype, valuetype>::BTree(int m):root(0),M(m),MAX_KEY(M-1),MIN_KEY((M+1)/2-1),MIN_KEY_ROOT(1)
+BTree<keytype, valuetype>::BTree(int m):root(0),M(m),MAX_KEY(M-1),MIN_KEY(ceil(M/2.0)-1),MIN_KEY_ROOT(1)
 {
 }
 

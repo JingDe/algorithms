@@ -7,6 +7,35 @@
 #include<sstream>
 #include<cassert>
 #include<algorithm>
+#include<cmath>
+
+#ifdef DEBUG
+#define LOG_DEBUG(fmt, ...)  printf("[%s:%d:%s]  " format "\n", __FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)
+#else
+#define LOG_DEBUG(fmt, ...)
+#endif
+
+#ifdef DEBUG
+void TRACE(char* fmt, ...)
+{
+	va_list args;
+	va_list args2;
+	va_start(args, fmt);
+	va_copy(args2, args);
+		
+	std::vector<char> buf;
+	buf.resize(1+vsnprintf(NULL, 0, fmt, args));
+	va_end(args);
+
+	vsnprintf(buf.data(), buf.size(), fmt, args2);
+	va_end(args2);
+	
+	printf("%s\n", buf.data());
+}
+#else
+void TRACE(char* fmt, ...){}
+//#define TRACE(fmt, ...)
+#endif
 
 // B+树实现
 // 根结点：或者是叶节点，或者是儿子数在2和M之间
@@ -43,10 +72,10 @@ public:
 	void IndexBorrowLeft(int selfIdx);
 	void IndexBorrowRight(int selfIdx);
 	
-	void LeafMergeLeft(int selfIdx);
+	//void LeafMergeLeft(int selfIdx);
 	void LeafMergeRight(int selfIdx);
 	
-	void IndexMergeLeft(int selfIdx);
+	//void IndexMergeLeft(int selfIdx);
 	void IndexMergeRight(int selfIdx);
 	
 	std::string toString();
@@ -131,6 +160,7 @@ void BPTNode<keytype, valuetype>::LeafDeleteRecord(int idx)
 {
 	keys_.erase(keys_.begin()+idx);
 	values_.erase(values_.begin()+idx);
+	printf("删除记录后，%s\n", toString().c_str());
 }
 
 // 计算机整数相除，只保留整数位
@@ -140,7 +170,7 @@ void BPTNode<keytype, valuetype>::LeafDeleteRecord(int idx)
 template<typename keytype, typename valuetype>
 void BPTNode<keytype, valuetype>::LeafSplit(BPTNode<keytype, valuetype>** rightSibling)
 {
-	printf("before LeafSplit %s\n", toString().c_str());
+	printf("将分裂叶子节点 %s\n", toString().c_str());
 	int left=(keys_.size())/2; // 0-left-1  与 left~keys_.size()-1
 	(*rightSibling)->parent_=parent_;
 	(*rightSibling)->isLeaf_=isLeaf_;
@@ -155,7 +185,7 @@ void BPTNode<keytype, valuetype>::LeafSplit(BPTNode<keytype, valuetype>** rightS
 	(*rightSibling)->next_=next_;
 	next_=*rightSibling;
 	
-	printf("LeafSplit %s, %s\n", toString().c_str(), (*rightSibling)->toString().c_str());
+	printf("分裂叶子节点得到 %s, %s\n", toString().c_str(), (*rightSibling)->toString().c_str());
 }
 
 // 6 2+1+3 3+3
@@ -185,7 +215,7 @@ template<typename keytype, typename valuetype>
 std::string BPTNode<keytype, valuetype>::toString()
 {
 	std::ostringstream oss;
-	std::string result;
+	std::string result;	
 	if(isLeaf_)
 	{
 		typename std::vector<keytype>::iterator it=keys_.begin();
@@ -204,6 +234,8 @@ std::string BPTNode<keytype, valuetype>::toString()
 			++it;
 		}
 	}
+	if(keys_.size()==0)
+		oss<<"(空节点)";
 	result=oss.str();
 	return result;
 }
@@ -232,7 +264,7 @@ void BPTNode<keytype, valuetype>::LeafBorrowLeft(int selfIdx)
 template<typename keytype, typename valuetype>
 void BPTNode<keytype, valuetype>::LeafBorrowRight(int selfIdx)
 {
-	BPTNode<keytype, valuetype> *rightSibling=parent_->children_[selfIdx-1];
+	BPTNode<keytype, valuetype> *rightSibling=parent_->children_[selfIdx+1];
 	keys_.push_back(rightSibling->keys_.front());
 	values_.push_back(rightSibling->values_.front());
 	
@@ -255,10 +287,95 @@ template<typename keytype, typename valuetype>
 void BPTNode<keytype, valuetype>::IndexBorrowRight(int selfIdx)
 {
 	keys_.insert(keys_.begin(), parent_->keys_[selfIdx]);
-	BPTNode<keytype, valuetype> *rightSibling=parent_->children_[selfIdx-1];
+	BPTNode<keytype, valuetype> *rightSibling=parent_->children_[selfIdx+1];
 	parent_->keys_[selfIdx]=rightSibling->keys_.front();
 	rightSibling->keys_.erase(rightSibling->keys_.begin());
 }
+
+/* template<typename keytype, typename valuetype>
+void BPTNode<keytype, valuetype>::LeafMergeLeft(int selfIdx)
+{
+	BPTNode<keytype, valuetype> *leftSibling=parent_->children_[selfIdx-1];
+	BPTNode<keytype, valuetype> *leftLeftSibling=NULL;
+	if(selfIdx-2>=0)
+		leftLeftSibling=parent_->children_[selfIdx-2];
+	printf("%s, 合并左边叶子之前, %s, %s\n", toString().c_str(), leftSibling->toString().c_str(), parent_->toString().c_str());
+	assert(this==leftSibling->next_);
+	assert(leftSibling->parent_==parent_);
+	assert(leftSibling->isLeaf_==isLeaf_  &&  isLeaf_==true);
+	assert(leftSibling->isRoot_==isRoot_  &&  isRoot_==false);
+	assert(leftSibling->children_.size()==0);
+	for(typename std::vector<keytype>::iterator it=leftSibling->keys_.begin(); it!=leftSibling->keys_.end(); it++)
+		keys_.insert(keys_.begni(), *it); // TODO
+	for(typename std::vector<valuetype>::iterator it=leftSibling->values_.begin(); it!=leftSibling->values_.end(); it++)
+		values_.insert(values_.begin(), *it); // TODO
+	
+	parent_->keys_.erase(parent_->keys_.begin()+selfIdx-1);
+	parent_->children_.erase(parent_->children_.begin()+selfIdx);
+	if(leftLeftSibling)
+		leftLeftSibling->next_=this;
+	else
+	{
+		printf("检查更新B+树的head_\n"); // TODO
+	}
+	delete leftSibling;
+	printf("合并左边叶子之后，%s, %s\n", toString().c_str(), parent_->toString().c_str());
+} */
+
+template<typename keytype, typename valuetype>
+void BPTNode<keytype, valuetype>::LeafMergeRight(int selfIdx)
+{	
+	BPTNode<keytype, valuetype> *rightSibling=parent_->children_[selfIdx+1]; // rightSibling=next_
+	printf("%s, 合并右边叶子之前, %s, %s\n", toString().c_str(), rightSibling->toString().c_str(), parent_->toString().c_str());
+	assert(next_==rightSibling);
+	assert(rightSibling->parent_==parent_);
+	assert(rightSibling->isLeaf_==isLeaf_  &&  isLeaf_==true);
+	assert(rightSibling->isRoot_==isRoot_  &&  isRoot_==false);
+	assert(rightSibling->children_.size()==0);
+	for(typename std::vector<keytype>::iterator it=rightSibling->keys_.begin(); it!=rightSibling->keys_.end(); it++)
+		keys_.push_back(*it);
+	for(typename std::vector<valuetype>::iterator it=rightSibling->values_.begin(); it!=rightSibling->values_.end(); it++)
+		values_.push_back(*it);
+	
+	parent_->keys_.erase(parent_->keys_.begin()+selfIdx);
+	parent_->children_.erase(parent_->children_.begin()+selfIdx+1);
+	next_=rightSibling->next_;
+	delete rightSibling;
+	printf("合并右边叶子之后，%s, %s\n", toString().c_str(), parent_->toString().c_str());
+}
+
+/* template<typename keytype, typename valuetype>
+void BPTNode<keytype, valuetype>::IndexMergeLeft(int selfIdx)
+{
+	BPTNode<keytype, valuetype> *leftSibling=parent_->children_[selfIdx-1];
+	// leftSibling->IndexMergeRight(selfIdx-1); // error
+} */
+
+template<typename keytype, typename valuetype>
+void BPTNode<keytype, valuetype>::IndexMergeRight(int selfIdx)
+{
+	BPTNode<keytype, valuetype> *rightSibling=parent_->children_[selfIdx+1];
+	printf("%s, 合并右边索引之前, %s, %s\n", toString().c_str(), rightSibling->toString().c_str(), parent_->toString().c_str());
+	assert(rightSibling->parent_==parent_  &&  parent_!=NULL);
+	assert(rightSibling->isLeaf_==isLeaf_  &&  isLeaf_==false);
+	assert(rightSibling->isRoot_==isRoot_  &&  isRoot_==false);
+	assert(rightSibling->children_.size()!=0);
+	
+	keys_.push_back(parent_->keys_[selfIdx]);
+	keys_.reserve(keys_.size()+rightSibling->keys_.size());
+	for(typename std::vector<keytype>::iterator it=rightSibling->keys_.begin(); it!=rightSibling->keys_.end(); it++)
+		keys_.push_back(*it);
+	children_.reserve(children_.size()+rightSibling->children_.size());
+	for(typename std::vector<BPTNode<keytype, valuetype>*>::iterator it=rightSibling->children_.begin(); it!=rightSibling->children_.end(); it++)
+		children_.push_back(*it);
+	
+	parent_->keys_.erase(parent_->keys_.begin()+selfIdx);
+	parent_->children_.erase(parent_->children_.begin()+selfIdx+1);
+	delete rightSibling;
+	printf("合并右边索引之后，%s, %s\n", toString().c_str(), parent_->toString().c_str());
+}
+
+
 
 /*
 BPlusTree
@@ -286,8 +403,8 @@ private:
 	bool borrowRichSiblingLeaf(BPTNode<keytype, valuetype> *node);
 	bool borrowRichSiblingIndex(BPTNode<keytype, valuetype> *node);
 	
-	bool mergeLeaf(BPTNode<keytype, valuetype> *node);
-	bool mergeIndex(BPTNode<keytype, valuetype> *node);
+	bool mergeLeaf(BPTNode<keytype, valuetype> **node);
+	bool mergeIndex(BPTNode<keytype, valuetype> **node);
 
 	BPTNode<keytype, valuetype>* root_; // 根节点
 	BPTNode<keytype, valuetype>* head_; // 叶节点链表表头节点
@@ -305,18 +422,18 @@ private:
 
 template<typename keytype, typename valuetype>
 BPlusTree<keytype, valuetype>::BPlusTree():root_(0),head_(0),
-	M(M_DEFAULT),MAX_KEY(M-1),MIN_KEY((M+1)/2-1),MIN_KEY_ROOT(1),
-	L(L_DEFAULT),MAX_RECORD(L),MIN_RECORD((L/2))
+	M(M_DEFAULT),MAX_KEY(M-1),MIN_KEY(ceil(M/2.0)-1),MIN_KEY_ROOT(1),
+	L(L_DEFAULT),MAX_RECORD(L),MIN_RECORD(ceil(L/2.0))
 {
-	
+	printf("B+树，%d, %d, %d, %d, %d\n", MAX_KEY, MIN_KEY, MIN_KEY_ROOT, MAX_RECORD, MIN_RECORD);
 }
 
 template<typename keytype, typename valuetype>
 BPlusTree<keytype, valuetype>::BPlusTree(int m, int l):root_(0),head_(0),
-	M(m),MAX_KEY(M-1),MIN_KEY((M+1)/2-1),MIN_KEY_ROOT(1),
-	L(l),MAX_RECORD(L),MIN_RECORD((L/2))
+	M(m),MAX_KEY(M-1),MIN_KEY(ceil(M/2.0)-1),MIN_KEY_ROOT(1),
+	L(l),MAX_RECORD(L),MIN_RECORD(ceil(L/2.0))
 {
-	
+	printf("B+树，%d, %d, %d, %d, %d\n", MAX_KEY, MIN_KEY, MIN_KEY_ROOT, MAX_RECORD, MIN_RECORD);
 }
 
 template<typename keytype, typename valuetype>
@@ -384,7 +501,7 @@ bool BPlusTree<keytype, valuetype>::Search(const keytype& key, valuetype *value)
 template<typename keytype, typename valuetype>
 bool BPlusTree<keytype, valuetype>::Insert(const keytype& key, const valuetype& value)
 {
-	printf("Call Insert %d %d\n", key, value);
+	printf("\nCall Insert %d %d\n", key, value);
 	if(root_==NULL)
 	{
 		printf("插入空树\n");
@@ -405,9 +522,9 @@ bool BPlusTree<keytype, valuetype>::Insert(const keytype& key, const valuetype& 
 	printf("插入叶节点,%s\n", leaf->toString().c_str());
 	leaf->LeafInsertRecord(idx, key, value);
 	
-	if(leaf->keys_.size()<=L)
+	if(leaf->keys_.size()<=MAX_RECORD)
 		return true;
-	printf("插入，叶节点数%d, 超过%d\n", leaf->keys_.size(), L);
+	printf("插入记录后%s，叶节点数%d, 超过%d\n", leaf->toString().c_str(), leaf->keys_.size(), MAX_RECORD);
 	BPTNode<keytype, valuetype>* rightSibling=new BPTNode<keytype, valuetype>();
 	leaf->LeafSplit(&rightSibling);
 	
@@ -431,14 +548,13 @@ bool BPlusTree<keytype, valuetype>::Insert(const keytype& key, const valuetype& 
 	BPTNode<keytype, valuetype>* cur=leaf->parent_;
 	while(true)
 	{
-		if(cur->keys_.size()<M)
+		if(cur->keys_.size()<=MAX_KEY)
 			return true;
 		
 		BPTNode<keytype, valuetype>* rightSibling=new BPTNode<keytype, valuetype>();
 		keytype middleKey;
 		cur->IndexSplit(&rightSibling, &middleKey);
-		printf("cur->isRoot=%d\n", cur->isRoot_);
-
+		
 		//if(cur->isRoot_)
 		if(cur==root_)
 		{
@@ -475,7 +591,7 @@ bool BPlusTree<keytype, valuetype>::Search_for_Insert(const keytype& key, BPTNod
 	{
 		for(it=cur->keys_.begin(); it!=cur->keys_.end(); it++)
 		{
-			if(*it>key) 
+			if(*it>=key) 
 				break;
 		}
 		if(cur->isLeaf_)
@@ -492,10 +608,12 @@ bool BPlusTree<keytype, valuetype>::Search_for_Insert(const keytype& key, BPTNod
 	*idx=it-cur->keys_.begin();
 	if(cur!=NULL  &&  cur->isLeaf_  &&  it!=cur->keys_.end()  &&  *it==key)
 	{
+		printf("搜索到key %d 存在叶子节点%s 中\n", key, cur->toString().c_str());
 		return true;
 	}
 	else
 	{
+		printf("搜索到叶子节点%s, key %d不存在, 可插入%d位置\n", cur->toString().c_str(), key, *idx);
 		return false;
 	}
 }
@@ -519,19 +637,23 @@ bool BPlusTree<keytype, valuetype>::insert_empty_tree(const keytype& key, const 
 template<typename keytype, typename valuetype>
 bool BPlusTree<keytype, valuetype>::Delete(const keytype& key)
 {
-	printf("删除 %d\n", key);
+	printf("\nCall Delete %d\n", key);
 	if(root_==NULL)
 		return false;
 	BPTNode<keytype, valuetype> *leaf;
 	int idx;
-	int exist=Search_for_Delete(key, &leaf, &idx);
+	bool exist=Search_for_Delete(key, &leaf, &idx);
 	if(!exist)
+	{
+		printf("删除key %d 不存在\n", key);
 		return true;
+	}
 	
 	printf("从叶节点%s中删除第%d个key\n", leaf->toString().c_str(), idx);
 	leaf->LeafDeleteRecord(idx);
 	if(leaf==root_)
 	{
+		printf("删除叶子节点是根节点\n");
 		if(leaf->keys_.size()==0)
 		{
 			delete leaf;// TODO
@@ -541,33 +663,46 @@ bool BPlusTree<keytype, valuetype>::Delete(const keytype& key)
 	}
 	
 	if(leaf->keys_.size()>=MIN_RECORD)
+	{
+		printf("删除叶子节点个数%d, 不小于%d\n", leaf->keys_.size(), MIN_RECORD);
 		return true;
+	}
 	
 	if(borrowRichSiblingLeaf(leaf))
 	{
 		return true;
 	}
 	
-	mergeLeaf(leaf);
+	printf("合并叶子节点%s和一兄弟节点\n", leaf->toString().c_str());
+	mergeLeaf(&leaf);
 	BPTNode<keytype, valuetype> *cur=leaf->parent_;
 	while(true)
 	{
-		if(cur->isRoot_  &&  cur->keys_.size()>0)
-			return true;
-		if(cur->isRoot_  &&  cur->keys_.size()==0)
+		printf("当前节点%s\n", cur->toString().c_str());
+		if(cur->isRoot_  &&  cur->keys_.size()>=MIN_KEY_ROOT)
 		{
-			printf("删除根节点%s\n", root_->toString().c_str());
+			printf("到达根节点\n");
+			return true;
+		}
+		//if(cur->isRoot_  &&  cur->keys_.size()==0)
+		if(cur==root_  &&  cur->keys_.size()==0)
+		{
+			printf("删除空的根节点%s\n", root_->toString().c_str());
 			root_=root_->children_[0];
 			delete cur;
 			return true;
 		}
-		if(cur->isRoot_==false  &&  cur->keys_.size()>MIN_KEY)
+		if(cur->isRoot_==false  &&  cur->keys_.size()>=MIN_KEY)
+		{
+			printf("到达索引节点%s, 满足最小key要求%d\n", cur->toString().c_str(), MIN_KEY);
 			return true;
+		}
 		if(borrowRichSiblingIndex(cur))
 		{
 			return true;
 		}
-		mergeIndex(cur);
+		printf("合并索引节点%s和一兄弟节点\n", cur->toString().c_str());
+		mergeIndex(&cur);
 		cur=cur->parent_;
 	}
 	assert(false);
@@ -578,17 +713,20 @@ template<typename keytype, typename valuetype>
 bool BPlusTree<keytype, valuetype>::borrowRichSiblingLeaf(BPTNode<keytype, valuetype> *node)
 {
 	int idx=node->FindSelfIdx();
-	printf("叶子节点 %s 是父节点的第%d个子树\n", idx);
+	printf("叶子节点 %s 是父节点的第%d个子树\n", node->toString().c_str(), idx);
 	if(idx>0  &&  node->parent_->children_[idx-1]->keys_.size()>MIN_RECORD)
 	{
+		printf("左兄弟叶子节点有多余记录\n");
 		node->LeafBorrowLeft(idx);
 		return true;
 	}
 	if(node->parent_->keys_.size()>idx+1  &&  node->parent_->children_[idx+1]->keys_.size()>MIN_RECORD)
 	{
+		printf("右兄弟叶子节点有多余记录\n");
 		node->LeafBorrowRight(idx);
 		return true;
 	}
+	printf("兄弟节点无多余记录\n");
 	return false;
 }
 
@@ -611,33 +749,45 @@ bool BPlusTree<keytype, valuetype>::borrowRichSiblingIndex(BPTNode<keytype, valu
 }
 
 template<typename keytype, typename valuetype>
-bool BPlusTree<keytype, valuetype>::mergeLeaf(BPTNode<keytype, valuetype> *node)
+bool BPlusTree<keytype, valuetype>::mergeLeaf(BPTNode<keytype, valuetype> **node)
 {
-	int idx=node->FindSelfIdx();
-	printf("叶子节点 %s 是父节点的第%d个子树\n", idx);
+	int idx=(*node)->FindSelfIdx();
+	printf("叶子节点 %s 是父节点的第%d个子树\n", (*node)->toString().c_str(), idx);
 	if(idx>0)
 	{
-		node->LeafMergeLeft(idx);
+		printf("合并左兄弟叶子节点\n");
+		//node->LeafMergeLeft(idx);
+		printf("转换成合并右边叶子节点\n");
+		BPTNode<keytype, valuetype> *leftSibling=(*node)->parent_->children_[idx-1];
+		leftSibling->LeafMergeRight(idx-1);
+		*node=leftSibling;
 	}
 	else
 	{
-		node->LeafMergeRight(idx);
+		printf("合并右兄弟叶子节点\n");
+		(*node)->LeafMergeRight(idx);
 	}
 	return true;
 }
 
 template<typename keytype, typename valuetype>
-bool BPlusTree<keytype, valuetype>::mergeIndex(BPTNode<keytype, valuetype> *node)
+bool BPlusTree<keytype, valuetype>::mergeIndex(BPTNode<keytype, valuetype> **node)
 {
-	int idx=node->FindSelfIdx();
-	printf("索引节点 %s 是父节点的第%d个子树\n", idx);
+	int idx=(*node)->FindSelfIdx();
+	printf("索引节点 %s 是父节点的第%d个子树\n", (*node)->toString().c_str(), idx);
 	if(idx>0)
 	{
-		node->IndexMergeLeft(idx);
+		printf("合并左兄弟索引节点\n");
+		//node->IndexMergeLeft(idx);
+		printf("转换成合并右边索引节点\n");
+		BPTNode<keytype, valuetype> *leftSibling=(*node)->parent_->children_[idx-1];
+		leftSibling->IndexMergeRight(idx-1);
+		*node=leftSibling;
 	}
 	else
 	{
-		node->IndexMergeRight(idx);
+		printf("合并右兄弟兄弟节点\n");
+		(*node)->IndexMergeRight(idx);
 	}
 	return true;
 }
@@ -681,7 +831,7 @@ void BPlusTree<keytype, valuetype>::PrintRecord()
 {
 	for(BPTNode<keytype, valuetype> *node=head_; node!=NULL; node=node->next_)
 	{
-		printf("%s ", node->toString().c_str());
+		printf("%s, ", node->toString().c_str());
 	}
 	printf("\n");
 }
