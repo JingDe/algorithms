@@ -51,7 +51,7 @@ int main()
 			break;
 	}
 	delete array;
-	
+	fclose(stdin);
 	printf("%d\n", res);
 	
 	return 0;
