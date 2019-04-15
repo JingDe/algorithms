@@ -50,7 +50,7 @@ int main()
 		if(found)
 			break;
 	}
-	delete array;
+	delete [] array;
 	fclose(stdin);
 	printf("%d\n", res);
 	

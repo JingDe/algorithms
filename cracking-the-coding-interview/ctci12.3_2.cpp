@@ -74,7 +74,7 @@ int get_res_in_block(int blockStart, int blockLen) // 遍历文件，查找[bloc
 			break;
 	}
 	
-	delete bitmap;
+	delete[] bitmap;
 	
 	return res;
 }
@@ -97,7 +97,7 @@ int main()
 		if(blockStat[i]<blockLen)
 			break;
 	}
-	delete blockStat;
+	delete[] blockStat;
 	
 	int blockStart=i*blockLen;
 	int res=get_res_in_block(blockStart, blockLen);
