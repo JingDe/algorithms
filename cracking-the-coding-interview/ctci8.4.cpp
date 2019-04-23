@@ -93,16 +93,18 @@ void printArrange(const std::vector<std::string> &permu)
 	printf("\n");
 }
 
+// 有重复子集
 std::vector<std::string> get_permutation3(const std::string& str, int cur)
 {
-	std::vector<std::string> res;
+	std::vector<std::string> permu;
 	if(cur==str.size()-1)
 	{
 		std::string s;
 		s.assign(1, str[str.size()-1]);
-		return res;
+		permu.push_back(s);
+		return permu;
 	}
-	res=get_permutation3(str, cur+1);
+	std::vector<std::string> res=get_permutation3(str, cur+1);
 	for(std::vector<std::string>::iterator it=res.begin(); it!=res.end(); ++it)
 	{
 		std::string s=*it;
@@ -111,10 +113,12 @@ std::vector<std::string> get_permutation3(const std::string& str, int cur)
 		{
 			std::string s2=s;
 			s2.insert(i, 1, str[cur]);
-			res.push_back(s2);
+			permu.push_back(s2);
 		}
 	}
+	return permu;
 }
+
 
 int main()
 {
@@ -141,6 +145,15 @@ int main()
 		arrange3(s1);
 		printf("%s permutation:\n", s2.c_str());
 		arrange3(s2);
+	}
+	
+	{
+		std::string s1="bdcae";
+		std::string s2="bbcad";
+		printf("%s permutation:\n", s1.c_str());
+		arrange3_1(s1);
+		printf("%s permutation:\n", s2.c_str());
+		arrange3_1(s2);
 	}
 	return 0;
 }
