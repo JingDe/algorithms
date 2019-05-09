@@ -1,39 +1,54 @@
-
+#include<string>
 #include<string.h>
 #include<stdint.h>
+#include<stdio.h>
 
+// 不适合原始字符串只在后缀若干字符有差异的情况
+unsigned int djbHashFunction(const unsigned char* buf, int len);
+unsigned int murmurHashFunction(const void *key, int len);
 
-int stringHashFunction(std::string s)
+unsigned int stringHashFunction(std::string s)
 {
-#if defined MURMUR
 	return murmurHashFunction(s.c_str(), s.length());
-#elif defined SIP_CASE
-	return sipCaseHashFunction(s.c_str(), s.length()); // uint64_t to int ??
-#elif defined SIP_NOCASE
-	return sipHashFunction(s.c_str(), s.length());
-#else
-	return djbHashFunction(s.c_str(), s.length());
-#endif
+// #if defined MURMUR
+	// return murmurHashFunction(s.c_str(), s.length());
+// #elif defined SIP_CASE
+	// return sipCaseHashFunction(s.c_str(), s.length()); // uint64_t to int ??
+// #elif defined SIP_NOCASE
+	// return sipHashFunction(s.c_str(), s.length());
+// #else
+	// return djbHashFunction((const unsigned char*)s.c_str(), s.length());
+// #endif
 }
 
-
+// =========================HASH SEED================
 static uint8_t hash_function_seed[16];
 void setHashFunctionSeed(uint8_t* seed)
 {
 	memcpy(hash_function_seed, seed, sizeof(hash_function_seed));
 }
 
+static uint32_t hash_function_seed_int = 5381;
+void setHashFunctionSeedInt(uint32_t seed)
+{
+	hash_function_seed_int = seed;
+}
 
+// =======================DJB HASH===================
 unsigned int djbHashFunction(const unsigned char* buf, int len)
 {
-	unsigned int hash=(unsigned int)hash_function_seed;
+	unsigned int hash=(unsigned int)hash_function_seed_int;
 	while(len--)
+	{
 		hash=((hash<<5)+hash) + (std::tolower(*buf++));
+		//printf("hash = %u\n", hash);
+	}
 	return hash;
 }
 
-// ======================
-#ifdefined SIPHASH
+// ============================SIP HASH====================
+//#ifdefined SIPHASH
+#if 0
 #define U8TO64_LE_NOCASE(p)                                                   \
     (((uint64_t)(siptlw((p)[0]))) |                                           \
      ((uint64_t)(siptlw((p)[1])) << 8) |                                      \
@@ -71,8 +86,6 @@ unsigned int djbHashFunction(const unsigned char* buf, int len)
      ((uint64_t)((p)[4]) << 32) | ((uint64_t)((p)[5]) << 40) |                 \
      ((uint64_t)((p)[6]) << 48) | ((uint64_t)((p)[7]) << 56))
 #endif		
-
-
 
 
 uint64_t sipCaseHashFunction(const unsigned char *buf, int len) {
@@ -204,41 +217,41 @@ uint64_t siphash(const uint8_t *in, const size_t inlen, const uint8_t *k) {
 
 #endif
 
-// ==========
+// ====================MURMUR HASH=================
+unsigned int murmurHashFunction(const void *key, int len)
+{
+	/* 'm' and 'r' are mixing constants generated offline.
+	They're not really 'magic', they just happen to work well.  */
+	//seed种子，m，r的值都将会参与到计算中
+	uint32_t seed = hash_function_seed_int;
+	const uint32_t m = 0x5bd1e995;
+	const int r = 24;
+	/* Initialize the hash to a 'random' value */
+	uint32_t h = seed ^ len;
+	/* Mix 4 bytes at a time into the hash */
+	const unsigned char *data = (const unsigned char *)key;
+	while(len >= 4) {
+		uint32_t k = *(uint32_t*)data;
+		k *= m;
+		k ^= k >> r;
+		k *= m;
+		h *= m;
+		h ^= k;
+		data += 4;
+		len -= 4;
+	}
+	/* Handle the last few bytes of the input array  */
+	switch(len) {
+		case 3: h ^= data[2] << 16;
+		case 2: h ^= data[1] << 8;
+		case 1: h ^= data[0]; h *= m;
+	};
+	/* Do a few final mixes of the hash to ensure the last few
+	* bytes are well-incorporated. */
+	h ^= h >> 13;
+	h *= m;
+	h ^= h >> 15;
+	return (unsigned int)h;
+}
 
-unsigned int murmurHashFunction(const void *key, int len) 
-{  
-    /* 'm' and 'r' are mixing constants generated offline. 
-    They're not really 'magic', they just happen to work well.  */  
-    //seed种子，m，r的值都将会参与到计算中  
-    uint32_t seed = hash_function_seed;  
-    const uint32_t m = 0x5bd1e995;  
-    const int r = 24;  
-    /* Initialize the hash to a 'random' value */  
-    uint32_t h = seed ^ len;  
-    /* Mix 4 bytes at a time into the hash */  
-    const unsigned char *data = (const unsigned char *)key;  
-	while(len >= 4) {  
-        uint32_t k = *(uint32_t*)data;  
-        k *= m;  
-        k ^= k >> r;  
-        k *= m;  
-        h *= m;  
-        h ^= k;  
-        data += 4;  
-		len -= 4;  
-    }  
-    /* Handle the last few bytes of the input array  */  
-    switch(len) {  
-    case 3: h ^= data[2] << 16;  
-    case 2: h ^= data[1] << 8;  
-    case 1: h ^= data[0]; h *= m;  
-    };  
-     /* Do a few final mixes of the hash to ensure the last few 
-      * bytes are well-incorporated. */  
-    h ^= h >> 13;  
-    h *= m;  
-    h ^= h >> 15;  
-	return (unsigned int)h;  
-}  
-
+// ============================================

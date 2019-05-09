@@ -3,6 +3,7 @@
 #include<stdlib.h>
 #include<algorithm>
 #include<vector>
+#include<list>
 #include<sys/types.h>
 #include<sys/stat.h>
 #include<fcntl.h>
@@ -29,7 +30,8 @@ void merge(int cnt);
 std::string to_string(int number)
 {
 	std::string s;
-	//std::string es="";
+	if(number==0)
+		return "0";
 	while(number)
 	{
 		char c=(number%10)+'0';
@@ -62,6 +64,76 @@ bool readline(FILE* f, std::string &line)
 		}
 	}
 	return false;
+}
+
+std::string tmpFilePath(int no)
+{
+	//std::string filename="9.4_tmp"+std::to_string(number)+".txt";
+	std::string filename="9.4_tmp"+to_string(no)+".txt";
+	std::string path=tmp_dir+"/"+filename;
+	return path;
+}
+
+FILE* create_tmp_file(int number)
+{
+	std::string path=tmpFilePath(number);
+	//int fd=creat(path.c_str(), S_IRWXU);// linux
+	FILE* f=fopen(path.c_str(), "w"); // w: touch file
+	if(f==NULL)
+	{
+		perror("fopen");
+		return f;
+	}
+	printf("create temp file %s ok\n", path.c_str());
+	return f;
+}
+
+
+std::list<FILE*> openTmpFiles(int cnt)
+{
+	std::list<FILE*> tmpFiles;
+	for(int i=0; i<cnt; ++i)
+	{
+		std::string path=tmpFilePath(i);
+		FILE* tmpFile=fopen(path.c_str(), "r");
+		if(tmpFile)
+			tmpFiles.push_back(tmpFile);
+	}	
+	return tmpFiles;
+}
+
+void closeTmpFiles(const std::list<FILE*>& tmpFiles)
+{
+	for(std::list<FILE*>::const_iterator it=tmpFiles.begin(); it!=tmpFiles.end(); ++it)
+		fclose(*it);
+}
+
+void rm_tmpfiles(int cnt)
+{
+	for(int i=0; i<cnt; ++i)
+	{
+		std::string path=tmpFilePath(i);
+		unlink(path.c_str());
+		// remove(path.c_str());
+	}
+}
+
+// output string end with \n
+void outputTmpfile(const std::vector<std::string>& lines, FILE* file)
+{
+	if(file==NULL)
+		return;
+	for(int i=0; i<lines.size(); ++i)
+	{
+		std::string s=lines[i];
+		s=s+"\n"; // linux \n, windows \r\n
+		size_t sz=fwrite(const_cast<char*>(s.c_str()), 1, s.length(), file);
+		if(sz<s.length())
+		{
+			printf("fwrite %d < %d\n", sz, s.length());
+			return;
+		}
+	}
 }
 
 // 分块读取一个大文件，每次排序输出一个小文件
@@ -115,6 +187,8 @@ int splitSort2(FILE* file)
 		{
 			std::sort(lines.begin(), lines.end());
 			tmpfile=create_tmp_file(cnt);
+			if(tmpfile==NULL)
+				return -1;
 			outputTmpfile(lines, tmpfile);
 			fclose(tmpfile);
 			++cnt;
@@ -128,52 +202,87 @@ int splitSort2(FILE* file)
 	return cnt;
 }
 
-FILE* create_tmp_file(int number)
-{
-	//std::string filename="9.4_tmp"+std::to_string(number)+".txt";
-	std::string filename="9.4_tmp"+to_string(number)+".txt";
-	std::string path=tmp_dir+"/"+filename;
-	//int fd=creat(path.c_str(), S_IRWXU);// linux
-	FILE* f=fopen(path.c_str(), "w");
-	if(f==NULL)
-	{
-		perror("fopen");
-		return f;
-	}
-	printf("create temp file %s ok\n", path.c_str());
-	return f;
-}
 
-void outputTmpfile(const std::vector<std::string>& lines, FILE* file)
-{
-	if(file==NULL)
-		return;
-	for(int i=0; i<lines.size(); ++i)
-	{
-		std::string s=lines[i];
-		s=s+"\n"; // linux \n, windows \r\n
-		size_t sz=fwrite(const_cast<char*>(s.c_str()), 1, s.length(), file);
-		if(sz<s.length())
-		{
-			printf("fwrite %d < %d\n", sz, s.length());
-			return;
-		}
-		
-	}
-}
 
-void rm_tmpfiles(int number)
-{
+struct HeapElem{
+	std::string s;
+	FILE* f;
 	
+	HeapElem(const std::string& str, FILE* file):s(str),f(file){}
+};
+
+bool operator<(const HeapElem& lhs, const HeapElem& rhs)
+{
+	return lhs.s<rhs.s;
 }
-
-
-
 
 // 归并cnt个有序小文件，输出一个有序大文件
 void merge(int cnt)
 {
-	printf("merge to file %s\n", result_file.c_str());
+	//printf("merge to file %s\n", result_file.c_str());
+	FILE* outFile=fopen(result_file.c_str(), "w");
+	if(outFile==NULL)
+	{
+		perror("fopen result file");
+		return;
+	}
+	
+	std::list<FILE*> tmpFiles=openTmpFiles(cnt);
+	if(cnt!=tmpFiles.size())
+	{
+		fclose(outFile);
+		closeTmpFiles(tmpFiles);
+		return;
+	}
+	
+	//std::vector<std::pair<std::string, FILE*> > minHeap;
+	std::vector<HeapElem> minHeap;
+	
+	// init minHeap
+	for(std::list<FILE*>::iterator it=tmpFiles.begin(); it!=tmpFiles.end(); )
+	{
+		FILE* tmpFile=*it;
+		std::string line;
+		if(readline(tmpFile, line))
+		{
+			//minHeap.push_back(std::make_pair<std::string, FILE*>(line, tmpFile));
+			minHeap.push_back(HeapElem(line, tmpFile));
+			++it;
+		}
+		else
+			it=tmpFiles.erase(it);
+	}
+	
+	std::make_heap(minHeap.begin(), minHeap.end());
+	
+	// merge
+	while(!minHeap.empty())
+	{
+		std::pop_heap(minHeap.begin(), minHeap.end());
+		
+		std::string minStr=minHeap.back().s+"\n";
+		int n=fwrite(minStr.c_str(), 1, minStr.size(), outFile);
+		if(n<minStr.size())
+		{
+			//perror("write out file error");
+			printf("fwrite minStr=[%s], %d < %d\n", minStr.c_str(), n, minStr.size());
+			break;
+		}
+		
+		std::string line;
+		bool noEof=readline(minHeap.back().f, line);
+		if(noEof)
+		{
+			minHeap.back().s=line;
+			std::push_heap(minHeap.begin(), minHeap.end());
+		}
+		else
+			minHeap.pop_back();
+	}
+	
+	fclose(outFile);
+	closeTmpFiles(tmpFiles);
+	
 }
 
 void solve()
@@ -188,6 +297,11 @@ void solve()
 	int cnt=splitSort2(f);
 	//fclose(f);
 	fclose(stdin);
+	if(cnt<0)
+	{
+		printf("splitSort error\n");
+		return;
+	}
 	merge(cnt);
 	rm_tmpfiles(cnt);
 }
@@ -230,9 +344,9 @@ void test_outputTmpfile()
 {
 	std::vector<std::string> svec;
 	svec.push_back("111");
+	svec.push_back("222");
 	svec.push_back("111");
-	svec.push_back("111");
-	svec.push_back("111");
+	svec.push_back("444");
 	
 	FILE* f=fopen("tmpfile.txt", "w");
 	if(f==NULL)
@@ -253,12 +367,12 @@ int main(int argc, char* argv[])
 	{
 		//test_readline();
 		//test_middle_dir_not_exist();
-		test_outputTmpfile();
+		//test_outputTmpfile();
 	}
 	
 	
 	{
-		//solve();
+		solve();
 	}
 	return 0;
 }
