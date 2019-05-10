@@ -37,6 +37,8 @@ public:
 	std::string getNode(std::string key);
 
 private:
+    std::string realNode(const std::string& node);
+
 	std::map<unsigned int, std::string> nodes;
 	
 };
@@ -52,7 +54,8 @@ void ConsistentHash::initNodes(std::vector<std::string> servers, unsigned int vn
 		{
 			std::string vnodeName=serverName+"_vn"+to_string(j); // std::to_string(j);
 			unsigned int nodeHashValue=stringHashFunction(vnodeName);
-			nodes[nodeHashValue]=vnodeName;
+			//nodes[nodeHashValue]=vnodeName;
+            nodes[nodeHashValue]=serverName;
 			printf("insert node %u —— %s\n", nodeHashValue, vnodeName.c_str());
 		}
 	}
@@ -70,9 +73,14 @@ std::string ConsistentHash::getNode(std::string key)
 		vnode=nodes.begin()->second;
 	else
 		vnode=itr->second;
-	//return realNode(vnode);
-	std::string::size_type p=vnode.find('_');
-	return vnode.substr(0, p);
+	return realNode(vnode);
+//	std::string::size_type p=vnode.find('_');
+//	return vnode.substr(0, p);
+}
+
+std::string ConsistentHash::realNode(const std::string& node)
+{
+    return node;
 }
 
 ConsistentHash g_ch;
