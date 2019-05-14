@@ -187,11 +187,11 @@ void MGraph::Init(std::string filename)
 	for(int i=0; i<nedge; ++i){
 		std::cin>>u>>v>>w;
 		edge[u][v] = w;
-		edge[v][u]=w;
+		edge[v][u] = w;
 	}
 	for(int i=0; i<nvex; ++i)
 	{
-		edge[i][i]=0;
+		edge[i][i]=0; // valid edge
 	}
 	fclose(stdin);
 }
@@ -200,9 +200,28 @@ void MGraph::debug_print()
 {
 	printf("MGraph: %d vertex, %d edge\n", nvex, nedge);
 	for(int i=0; i<nvex; ++i)
+	{
+		for(int j=0; j<nvex; ++j)
+		{
+			if(edge[i][j]!=INVALID_EDGE)
+				printf("%d\t", edge[i][j]);
+			else
+				printf("+\t");
+		}
+		printf("\n");
+	}
+	for(int i=0; i<nvex; ++i)
 		for(int j=i+1; j<nvex; ++j)
 			if(edge[i][j]!=INVALID_EDGE)
 				printf("edge[%d, %d]=%d\n", i, j, edge[i][j]);
+			
+	for(int i=0; i<nvex; ++i)
+	{
+		printf("node %d has neighbor: ", i);
+		for(int v=FirstNeighbor(i); v>=0; v=NextNeighbor(i, v))
+			printf("%d\t", v);
+		printf("\n");
+	}
 }
 
 void MGraph::initEdge()
@@ -221,22 +240,20 @@ int MGraph::weight(int a, int b)
 
 int MGraph::FirstNeighbor(int v)
 {
-	//assert(v<nvex);
-	if(v>=nvex)
+	if(v<0  ||  v>=nvex)
 		return -1;
-	for(int j=0; j<nvex; j++)
-		if(edge[v][j]>0)
+	for(int j=0; j<nvex; ++j)
+		if(j!=v  &&  edge[v][j]!=INVALID_EDGE)
 			return j;
 	return -1;
 }
 
 int MGraph::NextNeighbor(int v, int w)
 {
-	//assert(v<nvex  &&  w<nvex  &&  edge[v][w]>0);
-	if(v>=nvex  ||  w>=nvex  ||  edge[v][w]<0)
+	if(v<0  ||  w<0  ||  v>=nvex  ||  w>=nvex  ||  edge[v][w]==INVALID_EDGE)
 		return -1;
-	for(int j=w+1; j<nvex; j++)
-		if(edge[v][j]>0)
+	for(int j=w+1; j<nvex; ++j)
+		if(j!=v  &&  edge[v][j]!=INVALID_EDGE)
 			return j;
 	return -1;
 }
