@@ -172,12 +172,85 @@ void test_beibao1_1()
 	}
 }
 
+
+// =========================
+void beibao1_2()
+{
+	FILE* f=freopen("data.in", "r", stdin);
+	if(f==NULL)
+	{
+		perror("open data.in, ");
+		return;
+	}
+	int n, C;
+	while(scanf("%d %d", &n, &C)==2)
+	{
+		printf("n=%d C=%d\n", n, C);		
+		int dp[n+1][C+1];
+		
+		int V=0, W=0;
+		for(int i=0; i<=n; ++i)
+		{
+			if(i>0)
+				scanf("%d %d", &V, &W);
+			for(int j=0; j<=C; ++j)
+			{
+				dp[i][j]= (i==0) ? 0 : dp[i-1][j];
+				if(i>0  &&  j>=V  &&  dp[i-1][j-V]+W>dp[i][j])
+				{
+					dp[i][j]=dp[i-1][j-V]+W;
+				}
+			}
+		}
+		printf("%d\n", dp[n][C]);
+	}
+}
+
+void beibao1_3()
+{
+	FILE* f=freopen("data.in", "r", stdin);
+	if(f==NULL)
+	{
+		perror("open data.in, ");
+		return;
+	}
+	int n, C;
+	while(scanf("%d %d", &n, &C)==2)
+	{
+		printf("n=%d C=%d\n", n, C);
+		int dp[C];
+		
+		int V=0, W=0;
+		for(int i=0; i<=n; ++i)
+		{
+			if(i>0)
+				scanf("%d %d", &V, &W);
+			for(int j=C; j>=0; --j)
+			{
+				dp[j]= (i==0) ? 0 : dp[j];
+				if(i>0  &&  j>=V  &&  dp[j-V]+W>dp[j])
+				{
+					dp[j]=dp[j-V]+W;
+				}
+			}
+		}
+		printf("%d\n", dp[C]);
+	}
+}
+
+
 int main()
 {
 	test_beibao1();
 	
 	printf("\n---------test 1-1----------\n");
 	test_beibao1_1();
+	
+	printf("\n---------test 1-2----------\n");
+	beibao1_2();
+	
+	printf("\n---------test 1-3----------\n");
+	beibao1_3();
 	
 	return 0;
 }
