@@ -271,9 +271,20 @@ void PrintLongestWord(std::string word[], int n)
 	}
 }
 
+void test2()
+{
+	std::string arr[] = {"test", "tester", "testertest", "testing", 
+		"apple", "seattle", "banana",  "batting", "ngcat", 
+		"batti","bat", "testingtester", "testbattingcat"};
+	
+	PrintLongestWord(arr, 13);
+}
+
 int main()
 {
-	test();
+	//test();
+	test2();
+	
 	
 	return 0;
 	
