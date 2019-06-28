@@ -135,7 +135,7 @@ void SetOfStacks::Pop()
 
 void SetOfStacks::PopAt(int i)
 {
-	if(stacks[i].empty()==false)
+	if(stacks[i]->Empty()==false)
 		stacks[i]->Pop();
 }
 
@@ -147,7 +147,7 @@ bool SetOfStacks::Empty()
 void SetOfStacks::debug()
 {
 	for(std::vector<std::shared_ptr<Stack> >::const_iterator it=stacks.cbegin(); it!=stacks.cend(); it++)
-		printf("stack %d has %d, ", it-stacks.cbegin(), it->Size());
+		printf("stack %d has %d, ", it-stacks.cbegin(), (*it)->Size());
 	printf("\n");
 }
 

@@ -68,8 +68,9 @@ private:
 	FILE* file_;
 	char buffer_[64*1024];
 	
-	InputFile(const InputFile&);
-	InputFile& operator=(const InputFile&);
+	DISALLOW_COPY(InputFile);
+	// InputFile(const InputFile&);
+	// InputFile& operator=(const InputFile&);
 };
 
 
@@ -244,6 +245,7 @@ int sortSplit(const char* filename)
 	threadPool.start(2);
 	int active=0;
 	
+	// 开始阶段，主线程读，线程池sort
 	{
 		TaskPtr task(new Task(&queue));
 		if(task->read(in))
