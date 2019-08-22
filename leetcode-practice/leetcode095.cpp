@@ -85,3 +85,38 @@ void connectTree(TreeNode* left, TreeNode* root, TreeNode* right, vector<TreeNod
 	trees.push_back(root);
 }
 
+// 方法一，递归
+vector<TreeNode*> generateTrees(int n)
+{
+	if(n==0)
+		return vector<TreeNode*>();
+	return generate_trees(1, n);
+}
+
+
+vector<TreeNode*> generate_trees(int start, int end)
+{
+	vector<TreeNode*> all_trees;
+	if(start>end)
+	{
+		all_trees.push_back(NULL);
+		return all_trees;
+	}
+	
+	for(int i=start; i<=end; ++i)
+	{
+		vector<TreeNode*> left_trees=generate_trees(start, i-1);
+		
+		vector<TreeNode*> right_trees=generate_trees(i+1, end);
+		
+		for(TreeNode* l : left_trees)
+			for(TreeNode* r : right_trees)
+			{
+				TreeNode* current_trees=new TreeNode(i);
+				current_trees->left=l;
+				current_trees->right=r;
+				all_trees.push_back(current_trees);
+			}
+	}
+	return all_trees;
+}

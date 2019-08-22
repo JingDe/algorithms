@@ -4,7 +4,7 @@
 
 using std::vector;
 
-// 4数组之和
+// 4数之和
 
 void printVec(vector<int>& v)
 {
@@ -88,5 +88,74 @@ int main()
 	
 // }
 
-// vector<vector<int> > ksum_recursive(vector<int>& nums, int cur_k, int cur_target, vector<int> stack, int stack_index, int begin)
+// vector<vector<int> > ksteum_recursive(vector<int>& nums, int cur_k, int cur_target, vector<int> stack, int stack_index, int begin)
 // {}
+
+
+// 方法一： 从2sum到3sum，从3sum到4sum
+void twoSumForForSum(vector<int>& nums, int target, int low, int high, vector<vector<int>> forSumList, int z1, int z2)
+{
+	
+}
+
+vector<vector<int>> fourSum(vector<int>& nums, int target) 
+{
+	
+}
+	
+
+// 方法二：k-sum
+vector<vector<int>> fourSum(vector<int>& nums, int target) 
+{
+	std::sort(nums.begin(), nums.end());
+	return kSum(nums, target, 4, 0);
+}
+
+vector<vector<int>> kSum(vector<int>& nums, int target, int k,  int index)
+{
+	vector<vector<int>> res;
+	if(index >=nums.size())
+		return res;
+	
+	if(k==2)
+	{
+		int i=index,j=len-1;
+		while(i<j)
+		{
+			if(target-nums[i]==nums[j])
+			{
+				vector<int> temp;
+				temp.push_back(nums[i]);
+				temp.push_back(nums[j]);
+				res.push_back(temp);
+				while(i<j  &&  nums[i]==nums[i+1]) i++;
+				while(i<j  &&  nums[j-1]==nums[j]) j--;
+				i++;
+				j--;
+			}
+			else if(target-nums[i]>nums[j])
+				i++;
+			else
+				j--;
+		}
+	}
+	else
+	{
+		for(int i=index; i<len-k+1; i++)
+		{
+			vector<vector<int>> temp=kSum(nums, target-nums[i], k-1, i+1);
+			for(vector<int> t : temp)
+			{
+				t.push_back(nums[i]);
+				res.push_back(t);
+			}
+			
+			while(i<len-1  &&  nums[i]==nums[i+1])
+				i++;
+		}
+	}
+	return res;
+}
+
+
+
