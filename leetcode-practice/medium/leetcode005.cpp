@@ -6,6 +6,7 @@ using std::string;
 
 class Solution {
 public:
+	// 暴力解法
     string longestPalindrome1(string s) {
         int sz=s.size();
 		int res=sz;
@@ -127,6 +128,7 @@ public:
 		return substr;
 	}
 	
+	// expand Around Center解法
 	string longestPalindrome4(string s) {
 		if(s.empty())
 			return "";
@@ -142,7 +144,7 @@ public:
 				end=i+len/2;
 			}
 		}
-		return s.substr(start, end+1);
+		return s.substr(start, end-start+1);
 	}
 	// T=O(n)
 	int expandAroundCenter(string s, int left, int right)
@@ -171,3 +173,202 @@ int main()
 	
 	return 0;
 }
+
+
+// 再次分析暴力解法-》动态规划-》动态规划空间复杂度优化
+string longestPalindrome4(string s)
+{
+	int length=s.size();
+	bool P[length][length];
+	int maxLen=0;
+	string maxPal;
+	for(int len=1; i<=length; len++)
+	{
+		for(int start=0; start<length; start++)
+		{
+			int end=start+len-1;
+			if(end>=length)
+				break;
+			P[start][end]=(len==1  ||  len==2  ||  P[start+1][end-1]  &&  s[start]==s[end]);
+			if(P[start][end]  &&  len>maxLen)
+				maxPal=s.substr(start, len);
+		}
+	}
+	return maxPal;
+}
+// 时间复杂度O(n*n)
+// 空间复杂度O(n*n)
+
+// 优化空间复杂度
+string longestPalindrome4(string s)
+{
+	if(s.empty())
+		return s;
+	int n=s.length();
+	string res;
+	bool P[n];
+	for(int i=n-1; i>=0; i--)
+	{
+		for(int j=n-1; j>=i; j--)
+		{
+			P[j]= (s[i]==s[j]  &&  (j-i<3  ||  P[j-1]));
+			if(P[j]  &&  j-i+1>res.size())
+				res=s.substr(i, j-i+1);
+		}
+	}
+	return res;
+}
+
+
+
+
+// 最长公共子串解法
+// 错误：
+string longestPalindrome4(string s)
+{
+	if(s.empty())
+		return s;
+	string origin=s;
+	string reverse=s;
+	std::reverse(reverse.begin(), reverse.end());
+	
+	int length=s.length();
+	int arr[length][length]; // 动态规划求解s和reverse的最长公共子串
+	// arr[i][j]，表示s[0~i]和reverse[0~j]的，分别以s[i]和reverse[j]字符结尾的，最长公共子串长度
+	memset(arr, 0, sizeof(arr));
+	
+	int maxLen=0;
+	int maxEnd=0;
+	for(int i=0; i<length; ++i)
+	{
+		for(int j=0; j<length; j++)
+		{
+			if(origin[i]==reverse[j])
+			{
+				if(i==0  ||  j==0)
+					arr[i][j]=1;
+				else
+					arr[i][j]=arr[i-1][j-1]+1;
+			}
+			// else
+				// arr[i][j]=0;
+			
+			if(arr[i][j]>maxLen)
+			{				
+				// TODO
+				// 还需要判断 reverse倒置前的子串是否和origin的下标对应
+				// origin[?~i] reverse[?~j]，长度maxLen
+				// origin[i-maxLen+1 ... i]
+				// reverse[j-maxLen+1 ... j], 倒置前的下标范围[len-1-(j) ... len-1-(j-maxLen+1)]
+				// 判断len-1-j是否等于i-arr[i][j]+1
+				
+				maxLen=arr[i][j];
+				maxEnd=i; // 当前最长公共子串的结尾字符的位置				
+			}
+			
+		}
+	}
+	return s.substr(maxEnd-maxLen+1, maxLen);
+}
+
+string longestPalindrome4(string s)
+{
+	if(s.empty())
+		return s;
+	string origin=s;
+	string reverse=s;
+	std::reverse(reverse.begin(), reverse.end());
+	
+	int length=s.length();
+	int arr[length][length]; // 动态规划求解s和reverse的最长公共子串
+	// arr[i][j]，表示s[0~i]和reverse[0~j]的，分别以s[i]和reverse[j]字符结尾的，最长公共子串长度
+	memset(arr, 0, sizeof(arr));
+	
+	int maxLen=0;
+	int maxEnd=0;
+	for(int i=0; i<length; ++i)
+	{
+		for(int j=0; j<length; j++)
+		{
+			if(origin[i]==reverse[j])
+			{
+				if(i==0  ||  j==0)
+					arr[i][j]=1;
+				else
+					arr[i][j]=arr[i-1][j-1]+1;
+			}
+			// else
+				// arr[i][j]=0;
+			
+			if(arr[i][j]>maxLen)
+			{
+				// 还需要判断 reverse倒置前的子串是否和origin的下标对应
+				// origin[?~i] reverse[?~j]，长度maxLen
+				// origin[i-maxLen+1 ... i]
+				// reverse[j-maxLen+1 ... j], 倒置前的下标范围[len-1-(j) ... len-1-(j-maxLen+1)]
+				// 判断len-1-j是否等于i-arr[i][j]+1
+				
+				int beforeRev = length-1-j;
+				if(beforeRev == i-arr[i][j]+1)
+				// if(beforeRev+arr[i][j]-1 == i)
+				{				
+					maxLen=arr[i][j];
+					maxEnd=i; // 当前最长公共子串的结尾字符的位置				
+				}
+			}
+			
+		}
+	}
+	return s.substr(maxEnd-maxLen+1, maxLen);
+}
+// 时间O(n*n)
+// 空间O(n*n)
+
+
+// 最长公共子串解法，优化空间复杂度
+// 根据dp[][]下标dp, i从小到大，j从大到小
+string longestPalindrome4(string s)
+{
+	if(s.empty())
+		return s;
+	string origin=s;
+	string reverse=s;
+	std::reverse(reverse.begin(), reverse.end());
+	
+	int length=s.length();
+	int arr[length];
+	memset(arr, 0, sizeof(arr));
+	
+	int maxLen=0;
+	int maxEnd=0;
+	for(int i=0; i<length; ++i)
+	{
+		for(int j=length-1; j>=0; --j)
+		{
+			if(origin[i]==reverse[j])
+			{
+				if(i==0  ||  j==0)
+					arr[j]=1;
+				else
+					arr[j]=arr[j-1]+1;
+			}
+			else
+				arr[j]=0;
+			
+			if(arr[j]>maxLen)
+			{
+				int beforeRev = length-1-j;
+				if(beforeRev+arr[j]-1 == i)
+				{				
+					maxLen=arr[j];
+					maxEnd=i; 			
+				}
+			}
+			
+		}
+	}
+	return s.substr(maxEnd-maxLen+1, maxLen);
+}
+
+
+
