@@ -1,0 +1,4 @@
+
+int numSquares(int n) {
+
+}
