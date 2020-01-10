@@ -109,7 +109,7 @@ private:
 	{
 		if(kv.count(key))
 			lru.earse(mp[key]); // O(1)
-		lru.push_front(key); // O(1)
+		lru.push_front(key); // O(1), 不会导致mp中的迭代器失效
 		mp[key]=lru.begin(); // O(1)
 	}
 	
@@ -121,10 +121,17 @@ private:
 	}
 
 	int size;
-	list<int> lru; // 从mru到lru
+	list<int> lru; // 从mru到lru，最近访问到最久访问
 	unordered_map<int, list<int>::iterator> mp; // kv的key——lru的迭代器
-	unordered_map<int, int> kv;
-	// 元素只在lru中移动，在kv中无序存储
+	unordered_map<int, int> kv;	// 元素只在lru中移动，在kv中无序存储
+	
+	/*
+		类似memcached、leveldb等实现：
+		一个哈希表，一个lru链表。
+		每个记录，同时包含链接哈希表冲突链 和 lru链表的指针。
+		哈希表使用kv存储db的键值对。
+		链表使用lru的顺序连接记录，便于淘汰。
+	*/
 };
 
 class LRUCache {
@@ -171,11 +178,9 @@ private:
 		it->second.second=used.begin();
 	}
 	
-	int capacity;
-	//unordered_map<int, pair<int, list<int>::iterator> > cache;
-	//list<int> used;
-	HIPII cache;
-	LI used;
+	int capacity;	
+	HIPII cache; //unordered_map<int, pair<int, list<int>::iterator> > cache;
+	LI used; //list<int> used;
 };
 
 
